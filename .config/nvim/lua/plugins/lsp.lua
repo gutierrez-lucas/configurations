@@ -5,14 +5,6 @@ return {
     opts = {
       -- disable inlay hints globally
       inlay_hints = { enabled = false },
-      require("lspconfig").clangd.setup({
-        -- handlers = handlers,
-        capabilities = capabilities,
-        cmd = { "./clangd", "--background-index", "--compile-commands-dir=build", "--query-driver=*" },
-        root_dir = function()
-          -- leave empty to stop nvim from cd'ing into ~/ due to global .clangd file
-        end,
-      }),
       servers = {
         clangd = {
           -- cmd = { "clangd", "--compile-commands-dir=build", "--query-driver=/path/to/xtensa-esp32-elf-gcc" },
