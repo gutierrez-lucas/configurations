@@ -1,0 +1,9 @@
+[terminal.shell]
+program = "/bin/zsh"
+args = ["-l", "-c", "~/.tmux/tmux-start.sh"]
+
+[window]
+decorations = "None"
+startup_mode = "Maximized"
+
+[terminal]
