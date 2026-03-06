@@ -1,0 +1,53 @@
+# Ignore everything
+*
+
+# Unignore tracked files and their parent directories
+
+# Dotfiles
+!/.p10k.zsh
+!/.tmux.conf
+!/.zshrc
+
+# .config/alacritty
+!/.config/
+!/.config/alacritty/
+!/.config/alacritty/alacritty.toml
+
+# .config/nvim
+!/.config/nvim/
+!/.config/nvim/.gitignore
+!/.config/nvim/.neoconf.json
+!/.config/nvim/LICENSE
+!/.config/nvim/README.md
+!/.config/nvim/init.lua
+!/.config/nvim/lazy-lock.json
+!/.config/nvim/lazyvim.json
+!/.config/nvim/stylua.toml
+!/.config/nvim/lua/
+!/.config/nvim/lua/config/
+!/.config/nvim/lua/config/autocmds.lua
+!/.config/nvim/lua/config/keymaps.lua
+!/.config/nvim/lua/config/lazy.lua
+!/.config/nvim/lua/config/options.lua
+!/.config/nvim/lua/plugins/
+!/.config/nvim/lua/plugins/.clangd
+!/.config/nvim/lua/plugins/colorscheme.lua
+!/.config/nvim/lua/plugins/disable-conform.lua
+!/.config/nvim/lua/plugins/example.lua
+!/.config/nvim/lua/plugins/format.lua
+!/.config/nvim/lua/plugins/lsp.lua
+!/.config/nvim/lua/plugins/toggleterm.lua
+!/.config/nvim/lua/user/
+!/.config/nvim/lua/user/keymap.lua
+
+# .tmux
+!/.tmux/
+!/.tmux/.gitattributes
+!/.tmux/.gitignore
+!/.tmux/.tmux.conf
+!/.tmux/.tmux.conf.local
+!/.tmux/LICENSE.WTFPLv2
+!/.tmux/README.md
+!/.tmux/tmux-start.sh
+!/.tmux/.github/
+!/.tmux/.github/funding.yml
