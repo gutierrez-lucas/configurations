@@ -14,7 +14,7 @@
 !/.config/alacritty/alacritty.toml
 
 # .config/nvim
-!/.config/nvim/*
+!/.config/nvim/**
 
 # .tmux
-!/.tmux/*
+!/.tmux/**
