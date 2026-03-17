@@ -124,7 +124,8 @@ alias flashmonitor='idf.py flash -p /dev/ttyACM0 monitor -p /dev/ttyACM0'
 alias monitor='idf.py monitor -p /dev/ttyACM0'
 alias eraseflash='idf.py erase_flash -p /dev/ttyACM0'
 alias menuconfig='idf.py menuconfig'
-alias menuconfig='idf.py build'
+alias build='idf.py build'
+
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
