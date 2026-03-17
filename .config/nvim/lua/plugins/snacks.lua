@@ -2,14 +2,13 @@
 return {
   "folke/snacks.nvim",
   opts = {
-    explorer = {
-      show_hidden = true,
-      show_gitignored = true,
-      always_show = { ".gitignore" },
+    picker = {
+      sources = {
+        explorer = {
+          hidden = true,
+          ignored = true,
+        },
+      },
     },
   },
-  config = function(_, opts)
-    require("snacks").setup(opts)
-    print("Snacks override loaded!") -- debug message
-  end,
 }
