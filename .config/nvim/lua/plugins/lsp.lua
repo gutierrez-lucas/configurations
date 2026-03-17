@@ -6,6 +6,23 @@ return {
       -- disable inlay hints globally
       inlay_hints = { enabled = false },
       servers = {
+        -- override K for all LSP buffers to use hovercraft
+        ["*"] = {
+          keys = {
+            {
+              "K",
+              function()
+                local hovercraft = require("hovercraft")
+                if hovercraft.is_visible() then
+                  hovercraft.enter_popup()
+                else
+                  hovercraft.hover()
+                end
+              end,
+              desc = "Hovercraft hover",
+            },
+          },
+        },
         clangd = {
           -- cmd = { "clangd", "--compile-commands-dir=build", "--query-driver=/path/to/xtensa-esp32-elf-gcc" },
           cmd = {
