@@ -10,6 +10,7 @@
 
 #documentation
 !/.documentation/
+!/.documentation/*
 
 # .config/alacritty
 !/.config/
