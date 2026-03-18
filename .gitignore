@@ -8,6 +8,9 @@
 !/.tmux.conf
 !/.zshrc
 
+#documentation
+!/.documentation/
+
 # .config/alacritty
 !/.config/
 !/.config/alacritty/
