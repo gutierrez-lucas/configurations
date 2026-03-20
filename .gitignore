@@ -31,3 +31,7 @@
 
 # .tmux
 !/.tmux/**
+
+# .config/opencode
+!/.config/opencode/
+!/.config/opencode/AGENTS.md
