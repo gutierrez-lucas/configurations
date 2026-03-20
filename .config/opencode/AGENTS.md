@@ -691,3 +691,13 @@ Guard: redirects to `/` if `user.role !== "admin"` (client-side only).
 | 10 | `courses/AddCourseForm.tsx` | Form `handleSubmit` only `console.log`s — not wired to API | Medium |
 | 11 | `DashboardHome/index.tsx` | Charts use static data — not connected to backend | Medium |
 | 12 | `.env` | `VITE_BACKEND` points to IP `165.22.200.135:3000` not production domain | Low |
+
+---
+
+## 13. Git & GitHub Rules (Global — applies to all repos)
+
+- **NEVER run `git push` autonomously.** Always stop and ask the user before pushing to any remote.
+- **NEVER run `git add` or `git commit` autonomously.** Always ask the user before staging or committing any changes.
+- **NEVER create pull requests autonomously.** Always ask before running `gh pr create` or any equivalent.
+- Before any git add / commit / push / PR action, explicitly describe what will be staged/committed/pushed and ask for confirmation.
+- This rule is unconditional — it applies regardless of how the user phrases the request (e.g. "save changes", "ship it", "deploy", etc.).
