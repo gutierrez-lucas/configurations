@@ -287,7 +287,65 @@ apply_dotfiles() {
   success "Dotfiles applied."
 }
 
-# ── 15. Install tmux plugins via TPM ──────────────────────────────────────────
+# ── 15. shell-color-scripts (used by snacks dashboard) ───────────────────────
+install_shell_color_scripts() {
+  if command -v colorscript &>/dev/null; then
+    info "colorscript already installed, skipping."
+    return
+  fi
+  info "Installing shell-color-scripts (local, no sudo)..."
+  local TMP; TMP="$(mktemp -d)"
+  git clone --depth=1 https://gitlab.com/dwt1/shell-color-scripts.git "$TMP/shell-color-scripts"
+  mkdir -p "$HOME/.local/opt/shell-color-scripts" "$HOME/.local/bin"
+  cp -rf "$TMP/shell-color-scripts/colorscripts/." "$HOME/.local/opt/shell-color-scripts/"
+  cp "$TMP/shell-color-scripts/colorscript.sh" "$HOME/.local/bin/colorscript"
+  chmod +x "$HOME/.local/bin/colorscript"
+  # Patch the hardcoded /opt path to use ~/.local/opt
+  sed -i 's|DIR_COLORSCRIPTS="/opt/shell-color-scripts/colorscripts"|DIR_COLORSCRIPTS="$HOME/.local/opt/shell-color-scripts"|' \
+    "$HOME/.local/bin/colorscript"
+  rm -rf "$TMP"
+  success "colorscript installed to ~/.local/bin/colorscript."
+}
+
+# ── 16. GitHub CLI (gh) ───────────────────────────────────────────────────────
+install_gh() {
+  if command -v gh &>/dev/null; then
+    info "gh already installed ($(gh --version | head -1)), skipping."
+    return
+  fi
+  info "Installing GitHub CLI (gh) locally..."
+  local VERSION
+  VERSION="$(curl -fsSL https://github.com/cli/cli/releases/latest \
+    | grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' | head -1 | tr -d 'v')"
+  local TMP; TMP="$(mktemp -d)"
+  curl -fsSL "https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_amd64.tar.gz" \
+    -o "$TMP/gh.tar.gz"
+  tar -xzf "$TMP/gh.tar.gz" -C "$TMP/"
+  mkdir -p "$HOME/.local/bin"
+  cp "$TMP/gh_${VERSION}_linux_amd64/bin/gh" "$HOME/.local/bin/gh"
+  chmod +x "$HOME/.local/bin/gh"
+  rm -rf "$TMP"
+  success "gh v${VERSION} installed to ~/.local/bin/gh."
+}
+
+# ── 17. gh-notify extension ───────────────────────────────────────────────────
+install_gh_notify() {
+  if gh extension list 2>/dev/null | grep -q "gh-notify"; then
+    info "gh-notify extension already installed, skipping."
+    return
+  fi
+  # gh must be authenticated to install extensions
+  if ! gh auth status &>/dev/null; then
+    warn "gh is not authenticated — skipping gh-notify install."
+    warn "Run 'gh auth login' then 'gh extension install meiji163/gh-notify' manually."
+    return
+  fi
+  info "Installing gh-notify extension..."
+  gh extension install meiji163/gh-notify
+  success "gh-notify extension installed."
+}
+
+# ── 18. Install tmux plugins via TPM ──────────────────────────────────────────
 install_tmux_plugins() {
   info "Installing tmux plugins via TPM..."
   if [ -f "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]; then
@@ -317,6 +375,9 @@ main() {
   install_lazyvim
   install_tpm
   install_tmux_start_script
+  install_shell_color_scripts
+  install_gh
+  install_gh_notify
   set_default_shell
   apply_dotfiles
   install_tmux_plugins
@@ -330,6 +391,8 @@ main() {
   echo "  3. Open tmux and press <prefix>+I to confirm tmux plugins are installed."
   echo "  4. Alacritty is configured to start tmux automatically."
   echo "  5. Run 'p10k configure' if you want to reconfigure the prompt."
+  echo "  6. Authenticate GitHub CLI: gh auth login"
+  echo "     Then the snacks dashboard will show notifications, issues and PRs."
 }
 
 main "$@"

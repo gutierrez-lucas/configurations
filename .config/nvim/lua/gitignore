@@ -1,0 +1,20 @@
+# Ignore everything
+*
+
+# Unignore tracked files and their parent directories
+
+# Dotfiles
+!/.p10k.zsh
+!/.tmux.conf
+!/.zshrc
+
+# .config/alacritty
+!/.config/
+!/.config/alacritty/
+!/.config/alacritty/alacritty.toml
+
+# .config/nvim
+!/.config/nvim/*
+
+# .tmux
+!/.tmux/*
