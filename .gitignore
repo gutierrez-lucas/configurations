@@ -12,6 +12,10 @@
 !/.documentation/
 !/.documentation/*
 
+#scripts
+!/.scripts/
+!/scripts/*
+
 # .config/alacritty
 !/.config/
 !/.config/alacritty/
