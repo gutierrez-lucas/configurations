@@ -119,14 +119,16 @@ source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 source ~/.zsh/fzf-zsh-plugin/fzf-zsh-plugin.plugin.zsh
 
+# ESP-IDF
 alias exportidf='. /home/lucas/esp/esp-idf/export.sh'
-alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
 alias flashmonitor='idf.py flash -p /dev/ttyACM0 monitor -p /dev/ttyACM0'
 alias monitor='idf.py monitor -p /dev/ttyACM0'
 alias eraseflash='idf.py erase_flash -p /dev/ttyACM0'
 alias menuconfig='idf.py menuconfig'
 alias build='idf.py build'
+
 # File system
+alias ls='eza --icons --color=always'
 if command -v eza &> /dev/null; then
     alias ls='eza -lh --group-directories-first --icons=auto'
     alias lsa='ls -a'
@@ -134,7 +136,9 @@ if command -v eza &> /dev/null; then
     alias lta='lt -a'
 fi
 
-alias ls='eza --icons --color=always'
+## scripts
+alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
+alias launch_heethr='/home/lucas/.scripts/launch_heethr.sh'
 
 
 
