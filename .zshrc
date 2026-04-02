@@ -120,11 +120,22 @@ source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 source ~/.zsh/fzf-zsh-plugin/fzf-zsh-plugin.plugin.zsh
 
 alias exportidf='. /home/lucas/esp/esp-idf/export.sh'
+alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
 alias flashmonitor='idf.py flash -p /dev/ttyACM0 monitor -p /dev/ttyACM0'
 alias monitor='idf.py monitor -p /dev/ttyACM0'
 alias eraseflash='idf.py erase_flash -p /dev/ttyACM0'
 alias menuconfig='idf.py menuconfig'
 alias build='idf.py build'
+# File system
+if command -v eza &> /dev/null; then
+    alias ls='eza -lh --group-directories-first --icons=auto'
+    alias lsa='ls -a'
+    alias lt='eza --tree --level=2 --long --icons --git'
+    alias lta='lt -a'
+fi
+
+alias ls='eza --icons --color=always'
+
 
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
