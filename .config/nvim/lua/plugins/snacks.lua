@@ -1,39 +1,86 @@
 -- ~/.config/nvim/lua/plugins/snacks.lua
---
--- Dependencies (Ubuntu):
---   pokemon-colorscripts is not in apt. Install from source:
---     git clone https://gitlab.com/phoneybadger/pokemon-colorscripts.git
---     cd pokemon-colorscripts
---     ./install.sh          # requires sudo, installs to /usr/local
---
---   If sudo is unavailable, install to user-local instead:
---     mkdir -p ~/.local/opt/pokemon-colorscripts ~/.local/bin
---     cp -r colorscripts pokemon-colorscripts.py pokemon.json ~/.local/opt/pokemon-colorscripts/
---     ln -sf ~/.local/opt/pokemon-colorscripts/pokemon-colorscripts.py ~/.local/bin/pokemon-colorscripts
---     chmod +x ~/.local/opt/pokemon-colorscripts/pokemon-colorscripts.py
---     # Also add to ~/.zshrc or ~/.bashrc:
---     #   export PATH=$HOME/.local/bin:$PATH
---
---   The cmd below uses the absolute path so nvim finds it regardless of $PATH.
+-- Ensure ~/.local/bin is in PATH for dashboard terminal sections
+vim.env.PATH = os.getenv("HOME") .. "/.local/bin:" .. vim.env.PATH
 
 return {
   "folke/snacks.nvim",
   opts = {
     dashboard = {
-        sections = {
-            { section = "header" },
-            { section = "keys", gap = 1, padding = 1 },
-            { section = "startup" },
-            {
-            section = "terminal",
-            cmd = os.getenv("HOME") .. "/.local/bin/pokemon-colorscripts -r --no-title; sleep .1",
-            random = 10,
-            pane = 2,
-            indent = 4,
-            height = 30,
+            sections = {
+                { section = "header" },
+                {
+                pane = 2,
+                section = "terminal",
+                cmd = "colorscript -e square",
+                height = 5,
+                padding = 1,
+                },
+                { section = "keys", gap = 1, padding = 1 },
+                {
+                pane = 2,
+                icon = " ",
+                desc = "Browse Repo",
+                padding = 1,
+                key = "b",
+                action = function()
+                    Snacks.gitbrowse()
+                end,
+                },
+                function()
+                local in_git = Snacks.git.get_root() ~= nil
+                local cmds = {
+                    {
+                    title = "Notifications",
+                    cmd = "gh notify -s -a -n5",
+                    action = function()
+                        vim.ui.open("https://github.com/notifications")
+                    end,
+                    key = "n",
+                    icon = " ",
+                    height = 5,
+                    enabled = true,
+                    },
+                    {
+                    title = "Open Issues",
+                    cmd = "gh issue list -L 3",
+                    key = "i",
+                    action = function()
+                        vim.fn.jobstart("gh issue list --web", { detach = true })
+                    end,
+                    icon = " ",
+                    height = 7,
+                    },
+                    {
+                    icon = " ",
+                    title = "Open PRs",
+                    cmd = "gh pr list -L 3",
+                    key = "P",
+                    action = function()
+                        vim.fn.jobstart("gh pr list --web", { detach = true })
+                    end,
+                    height = 7,
+                    },
+                    {
+                    icon = " ",
+                    title = "Git Status",
+                    cmd = "git --no-pager diff --stat -B -M -C",
+                    height = 10,
+                    },
+                }
+                return vim.tbl_map(function(cmd)
+                    return vim.tbl_extend("force", {
+                    pane = 2,
+                    section = "terminal",
+                    enabled = in_git,
+                    padding = 1,
+                    ttl = 5 * 60,
+                    indent = 3,
+                    }, cmd)
+                end, cmds)
+                end,
+                { section = "startup" },
             },
         },
-    },
     picker = {
       sources = {
         explorer = {

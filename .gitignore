@@ -12,12 +12,17 @@
 !/.documentation/
 !/.documentation/*
 
+#scripts
+!/.scripts/
+!/.scripts/*
+
 # .config/alacritty
 !/.config/
 !/.config/alacritty/
 !/.config/alacritty/alacritty.toml
 
 # .config/nvim
+!/.config/nvim/
 !/.config/nvim/lua/
 !/.config/nvim/lua/*
 !/.config/nvim/lua/config/

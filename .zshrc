@@ -55,6 +55,20 @@ alias build='idf.py build'
 # Powerlevel10k config
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
 
+# File system
+alias ls='eza --icons --color=always'
+if command -v eza &> /dev/null; then
+    alias ls='eza -lh --group-directories-first --icons=auto'
+    alias lsa='ls -a'
+    alias lt='eza --tree --level=2 --long --icons --git'
+    alias lta='lt -a'
+fi
+
+## scripts
+alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
+alias launch_heethr='/home/lucas/.scripts/launch_heethr.sh'
+
+
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

@@ -17,7 +17,7 @@ placed in each project's root directory.
 
 | Project dir | `opencode.json` loads |
 |-------------|----------------------|
-| `/home/lucas/Work/Heether/` | `instructions/heethr.md` — Heethr snow melting platform (backend + dashboard) |
+| `/home/lucas/Work/Heethr/` | `instructions/heethr.md` — Heethr snow melting platform (backend + dashboard) |
 | `/home/lucas/Work/FlareSense/` | `instructions/flaresense.md` — FlareSense ESP32 firmware |
 
 ## Adding a new project
