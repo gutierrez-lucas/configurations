@@ -136,6 +136,8 @@ if command -v eza &> /dev/null; then
     alias lta='lt -a'
 fi
 
+alias gist='git status'
+alias gil='git log --graph --oneline --all --color'
 ## scripts
 alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
 alias launch_heethr='/home/lucas/.scripts/launch_heethr.sh'
@@ -147,3 +149,10 @@ eval "$(zoxide init bash)"
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+# fnm
+FNM_PATH="/home/lucas/.local/share/fnm"
+if [ -d "$FNM_PATH" ]; then
+  export PATH="$FNM_PATH:$PATH"
+  eval "$(fnm env --shell zsh)"
+fi

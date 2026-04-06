@@ -1,0 +1,7 @@
+# Ignore all plugin content except tmux2k's custom plugins dir
+plugins/*
+!plugins/tmux2k/
+plugins/tmux2k/*
+!plugins/tmux2k/plugins/
+plugins/tmux2k/plugins/*
+!plugins/tmux2k/plugins/copilot.sh

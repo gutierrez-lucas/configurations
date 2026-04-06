@@ -33,7 +33,12 @@
 !/.config/nvim/lua/user/*
 
 # .tmux
-!/.tmux/**
+!/.tmux/
+!/.tmux/.gitignore
+!/.tmux/plugins/
+!/.tmux/plugins/tmux2k/
+!/.tmux/plugins/tmux2k/plugins/
+!/.tmux/plugins/tmux2k/plugins/*
 
 # .config/opencode
 !/.config/opencode/
