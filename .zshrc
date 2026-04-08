@@ -1,3 +1,6 @@
+# TODO on terminal open
+glow ~/Documents/notes/VaultTec/_TODO.md
+
 # Enable Powerlevel10k instant prompt (keep near the top)
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
@@ -67,6 +70,12 @@ alias gil='git log --graph --oneline --all --color'
 ## scripts
 alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
 alias launch_heethr='/home/lucas/.scripts/launch_heethr.sh'
+
+# TODO
+alias todo='/home/lucas/.scripts/todo.sh'
+alias ta='todo add'
+alias tl='todo list'
+alias te='todo edit'
 
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
