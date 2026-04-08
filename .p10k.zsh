@@ -1707,6 +1707,18 @@
   # really need it.
   typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=true
 
+  # Per-host accent color: keep defaults for 'home', use orange for 'stream'.
+  case ${HOST%%.*} in
+    stream)
+      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_PREFIX='%208F╭─'
+      typeset -g POWERLEVEL9K_MULTILINE_NEWLINE_PROMPT_PREFIX='%208F├─'
+      typeset -g POWERLEVEL9K_MULTILINE_LAST_PROMPT_PREFIX='%208F╰─'
+      typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_FOREGROUND=208
+      typeset -g POWERLEVEL9K_PROMPT_CHAR_OK_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=208
+      typeset -g POWERLEVEL9K_CONTEXT_{REMOTE,REMOTE_SUDO}_FOREGROUND=208
+    ;;
+  esac
+
   # If p10k is already loaded, reload configuration.
   # This works even with POWERLEVEL9K_DISABLE_HOT_RELOAD=true.
   (( ! $+functions[p10k] )) || p10k reload
