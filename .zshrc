@@ -1,6 +1,8 @@
 # TODO on terminal open
 glow ~/Documents/notes/VaultTec/_TODO.md
 
+bindkey '^ ' autosuggest-accept
+
 # Enable Powerlevel10k instant prompt (keep near the top)
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
