@@ -1,35 +1,58 @@
 #!/usr/bin/env zsh
 
 DIR="/home/lucas/Work/FlareSense"
-SESSION="Flare"
+SESSION="FlareSense"
 
-if [[ "$1" == "--isolate" ]]; then
-  # Launch a new Alacritty window with a dedicated tmux session
-  alacritty -e tmux new-session -s "$SESSION" -c "$DIR" \; \
-    split-window -v -c "$DIR" \; \
-    send-keys -t "$SESSION:0.0" "nvim ." Enter \; \
-    send-keys -t "$SESSION:0.1" "exportidf && cd $DIR" Enter \; \
-    select-pane -t "$SESSION:0.0" \; \
-    rename-window "Flare" &
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+log()  { echo -e "${GREEN}[flaresense]${NC} $1"; }
+warn() { echo -e "${YELLOW}[flaresense]${NC} $1"; }
+
+# ── Attach shortcut ───────────────────────────────────────────────────────────
+if [[ "$1" == "attach" ]]; then
+  if tmux has-session -t "$SESSION" 2>/dev/null; then
+    tmux attach-session -t "$SESSION"
+  else
+    echo "No '$SESSION' session found."
+    exit 1
+  fi
   exit 0
 fi
 
-WINDOW=$(tmux display-message -p '#S:#I')
+# ── Kill existing session ─────────────────────────────────────────────────────
+if tmux has-session -t "$SESSION" 2>/dev/null; then
+  warn "Killing existing '$SESSION' session..."
+  tmux kill-session -t "$SESSION"
+fi
 
-# Rename the current window
-tmux rename-window -t "$WINDOW" "Flare"
+# ── 1. Create session — Shell window ─────────────────────────────────────────
+#    No direct pane command: exportidf is a zsh alias and must be sent via
+#    send-keys into an already-running interactive shell.
+tmux new-session -d -s "$SESSION" -n "Shell" -c "$DIR"
+tmux run-shell -t "$SESSION:Shell" "tmux source-file ~/.tmux.conf"
+tmux send-keys -t "$SESSION:Shell" "exportidf" Enter
 
-# Set the current window's working directory and split
-tmux send-keys -t "$WINDOW" "cd $DIR" Enter
+# ── 2. IDE window ─────────────────────────────────────────────────────────────
+tmux new-window -t "$SESSION:" -n "IDE" -c "$DIR"
+tmux send-keys -t "$SESSION:IDE" "exportidf && nvim ." Enter
 
-# Split the current window horizontally (upper/lower panes)
-tmux split-window -t "$WINDOW" -v -c "$DIR"
+# ── 3. Focus the IDE window ───────────────────────────────────────────────────
+tmux select-window -t "$SESSION:IDE"
 
-# Upper pane (pane 0): open nvim
-tmux send-keys -t "$WINDOW.0" "nvim ." Enter
-
-# Bottom pane (pane 1): run exportidf alias then cd to root dir
-tmux send-keys -t "$WINDOW.1" "exportidf && cd $DIR" Enter
-
-# Focus the upper pane
-tmux select-pane -t "$WINDOW.0"
+# ── 4. Open Alacritty and attach (or attach here if --here is passed) ─────────
+if [[ "$1" == "--here" ]]; then
+  log "Session '$SESSION' created — attaching here."
+  tmux attach-session -t "$SESSION"
+else
+  alacritty -e tmux attach-session -t "$SESSION" &
+  log "Session '$SESSION' created — opening Alacritty."
+fi
+echo ""
+echo "  Windows (in order):"
+echo "    Shell — exportidf sourced, shell at $DIR"
+echo "    IDE   — exportidf sourced, nvim at $DIR"
+echo ""
+echo "  ./launch_flare.sh attach — reattach to this session"
+echo ""

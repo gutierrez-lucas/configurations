@@ -71,7 +71,10 @@ alias gist='git status'
 alias gil='git log --graph --oneline --all --color'
 ## scripts
 alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
+alias close_flare='/home/lucas/.scripts/close_flare.sh'
 alias launch_heethr='/home/lucas/.scripts/launch_heethr.sh'
+alias close_heethr='/home/lucas/.scripts/close_heethr.sh'
+alias projects='/home/lucas/.scripts/projects.sh'
 
 # TODO
 alias todo='/home/lucas/.scripts/todo.sh'
