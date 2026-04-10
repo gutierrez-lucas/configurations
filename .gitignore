@@ -24,6 +24,7 @@
 
 # .config/nvim
 !/.config/nvim/
+!/.config/nvim/lazyvim.json
 !/.config/nvim/lua/
 !/.config/nvim/lua/*
 !/.config/nvim/lua/config/
