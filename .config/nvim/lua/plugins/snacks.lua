@@ -82,6 +82,10 @@ return {
             },
         },
     picker = {
+      layout = {
+        preset = "vertical",
+        layout = { width = 0.8 },
+      },
       sources = {
         explorer = {
           hidden = true,

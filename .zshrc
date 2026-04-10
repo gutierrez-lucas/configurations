@@ -67,7 +67,7 @@ if command -v eza &> /dev/null; then
     alias lta='lt -a'
 fi
 
-alias gist='git status'
+alias gis='git status'
 alias gil='git log --graph --oneline --all --color'
 ## scripts
 alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
