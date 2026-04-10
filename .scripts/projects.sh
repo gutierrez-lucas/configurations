@@ -96,7 +96,7 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
   --prompt='  › ' \
   --pointer='▶' \
   --marker='✓' \
-  --height=70% \
+  --height=100% \
   --header=$'\n  esc to quit\n' \
   --header-first \
   --no-info \
@@ -131,7 +131,7 @@ action_line=$(printf '%s\n' "${actions[@]}" | fzf \
   --color="$FZF_THEME" \
   --prompt='  › ' \
   --pointer='▶' \
-  --height=40% \
+  --height=~12 \
   --header=$'\n  Choose an action\n' \
   --header-first \
   --no-info \
@@ -140,25 +140,23 @@ action_line=$(printf '%s\n' "${actions[@]}" | fzf \
 
 [[ -z "$action_line" ]] && exit 0
 
-action=$(printf '%s' "$action_line" | awk '{print $2}')
-
 GREEN=$'\033[38;5;114m'
 NC=$'\033[0m'
 
-case "$action" in
-  launch)
+case "$action_line" in
+  *launch*)
     printf "\n${GREEN}  Launching ${name}...${NC}\n\n"
     zsh "$launch" --here
     ;;
-  attach)
+  *attach*)
     printf "\n${GREEN}  Attaching to ${name}...${NC}\n\n"
-    tmux attach-session -t "$session"
+    tmux switch-client -t "$session"
     ;;
-  close)
+  *close*)
     printf "\n${GREEN}  Closing ${name}...${NC}\n\n"
     zsh "$close"
     ;;
-  restart)
+  *restart*)
     printf "\n${GREEN}  Restarting ${name}...${NC}\n\n"
     zsh "$close" && sleep 1 && zsh "$launch" --here
     ;;

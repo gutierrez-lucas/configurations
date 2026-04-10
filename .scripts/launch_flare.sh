@@ -44,7 +44,7 @@ tmux select-window -t "$SESSION:IDE"
 # ── 4. Open Alacritty and attach (or attach here if --here is passed) ─────────
 if [[ "$1" == "--here" ]]; then
   log "Session '$SESSION' created — attaching here."
-  tmux attach-session -t "$SESSION"
+  tmux switch-client -t "$SESSION"
 else
   alacritty -e tmux attach-session -t "$SESSION" &
   log "Session '$SESSION' created — opening Alacritty."
