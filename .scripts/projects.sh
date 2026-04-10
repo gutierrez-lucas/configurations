@@ -3,6 +3,12 @@
 SELF="${(%):-%x}"
 SCRIPTS_DIR="/home/lucas/.scripts"
 
+# Clear global fzf defaults — prevents --multi, --preview=cat, and other
+# ambient options from interfering. Also blocks residual mouse events from
+# the click that opened this popup from auto-selecting entries.
+FZF_DEFAULT_OPTS=''
+FZF_DEFAULT_OPTS_FILE=''
+
 # ── Project registry ───────────────────────────────────────────────────────────
 # NAME | SESSION | DIR | LAUNCH | CLOSE | DESC
 typeset -a PROJECTS=(
@@ -100,6 +106,7 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
   --header=$'\n  esc to quit\n' \
   --header-first \
   --no-info \
+  --no-mouse \
   --bind="$VIM_BINDS" \
 )
 
@@ -135,6 +142,7 @@ action_line=$(printf '%s\n' "${actions[@]}" | fzf \
   --header=$'\n  Choose an action\n' \
   --header-first \
   --no-info \
+  --no-mouse \
   --bind="$VIM_BINDS" \
 )
 

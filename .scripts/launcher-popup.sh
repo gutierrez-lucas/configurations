@@ -6,6 +6,12 @@
 SCRIPTS_DIR="$HOME/.scripts"
 RESULT_FILE="$1"
 
+# Clear global fzf defaults — they include --multi, --preview, etc. which
+# interfere with this compact menu. Also prevents residual mouse events
+# (from the status-bar click that opened this popup) from auto-selecting.
+FZF_DEFAULT_OPTS=''
+FZF_DEFAULT_OPTS_FILE=''
+
 FZF_THEME="fg:#cdd6f4,fg+:#cdd6f4,bg:#1e1e2e,bg+:#313244,\
 hl:#89b4fa,hl+:#89b4fa,info:#cba6f7,prompt:#cba6f7,\
 pointer:#f38ba8,marker:#a6e3a1,header:#89dceb,\
@@ -32,6 +38,7 @@ selected=$(printf '%s\n' "${menu[@]}" | fzf \
   --header=$'\n  esc to close\n' \
   --header-first \
   --no-info \
+  --no-mouse \
   --bind="$VIM_BINDS" \
 )
 

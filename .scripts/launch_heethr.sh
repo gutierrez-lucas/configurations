@@ -33,7 +33,6 @@ fi
 #    pane immediately, with no send-keys race condition.
 tmux new-session -d -s "$SESSION" -n "start" -c "$DIR" \
   "bash $SCRIPTS_DIR/start-local-system.sh"
-tmux run-shell -t "$SESSION:start" "tmux source-file ~/.tmux.conf"
 
 # ── 2. IDE window ─────────────────────────────────────────────────────────────
 tmux new-window -t "$SESSION:" -n "IDE" -c "$DIR"

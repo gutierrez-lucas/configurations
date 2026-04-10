@@ -31,7 +31,6 @@ fi
 #    No direct pane command: exportidf is a zsh alias and must be sent via
 #    send-keys into an already-running interactive shell.
 tmux new-session -d -s "$SESSION" -n "Shell" -c "$DIR"
-tmux run-shell -t "$SESSION:Shell" "tmux source-file ~/.tmux.conf"
 tmux send-keys -t "$SESSION:Shell" "exportidf" Enter
 
 # ── 2. IDE window ─────────────────────────────────────────────────────────────
