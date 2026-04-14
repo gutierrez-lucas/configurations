@@ -24,6 +24,9 @@ preview-fg:#cdd6f4,preview-bg:#181825"
 if [[ "$1" == "--preview" ]]; then
   IFS='|' read -r name session dir launch close desc <<< "$2"
 
+  # Guard: if we didn't get valid pipe-separated data, bail out silently
+  [[ -z "$session" ]] && exit 0
+
   printf '\n'
   printf '  \033[1m\033[38;5;117m%s\033[0m\n' "$name"
   printf '  \033[2m%s\033[0m\n' "$desc"
@@ -91,7 +94,7 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
   --border-label='  Project Launcher  ' \
   --border-label-pos=2 \
   --color="$FZF_THEME" \
-  --preview="'$SELF' --preview '{2}'" \
+  --preview="'$SELF' --preview {2}" \
   --preview-window='right:48%:wrap:border-left' \
   --prompt='  › ' \
   --pointer='▶' \
@@ -101,6 +104,8 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
   --header-first \
   --no-info \
   --bind="$VIM_BINDS" \
+  --bind='start:unbind(enter)' \
+  --bind='load:rebind(enter)' \
 )
 
 [[ -z "$selected" ]] && exit 0
@@ -131,11 +136,13 @@ action_line=$(printf '%s\n' "${actions[@]}" | fzf \
   --color="$FZF_THEME" \
   --prompt='  › ' \
   --pointer='▶' \
-  --height=~12 \
+  --height=12 \
   --header=$'\n  Choose an action\n' \
   --header-first \
   --no-info \
   --bind="$VIM_BINDS" \
+  --bind='start:unbind(enter)' \
+  --bind='load:rebind(enter)' \
 )
 
 [[ -z "$action_line" ]] && exit 0
