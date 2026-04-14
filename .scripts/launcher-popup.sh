@@ -17,6 +17,7 @@ VIM_BINDS='j:down,k:up,ctrl-d:half-page-down,ctrl-u:half-page-up,g:first,G:last'
 menu=(
   $'\e[38;5;228m\e[0m  Calculator    bc — interactive calculator'
   $'\e[38;5;114m\e[0m  Projects      Launch or manage a project'
+  $'\e[38;5;82m$\e[0m  Dólar         Cotizaciones del dólar'
 )
 
 selected=$(printf '%s\n' "${menu[@]}" | fzf \
@@ -39,11 +40,15 @@ selected=$(printf '%s\n' "${menu[@]}" | fzf \
 
 case "$selected" in
   *Calculator*)
-    # Run bc directly in this popup — no result file needed.
-    exec bc -ql
+    printf 'calc' > "$RESULT_FILE"
+    exit 0
     ;;
   *Projects*)
     printf 'projects' > "$RESULT_FILE"
+    exit 0
+    ;;
+  *Dólar*)
+    printf 'dolar' > "$RESULT_FILE"
     exit 0
     ;;
 esac
