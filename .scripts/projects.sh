@@ -8,6 +8,7 @@ SCRIPTS_DIR="/home/lucas/.scripts"
 typeset -a PROJECTS=(
   "Heethr|Heethr|/home/lucas/Work/Heethr|$SCRIPTS_DIR/launch_heethr.sh|$SCRIPTS_DIR/close_heethr.sh|Snow melting platform — backend, dashboard & shop"
   "FlareSense|FlareSense|/home/lucas/Work/FlareSense|$SCRIPTS_DIR/launch_flare.sh|$SCRIPTS_DIR/close_flare.sh|ESP32 firmware & environmental sensing"
+  "Notes||/home/lucas/Documents/notes|||Obsidian vault"
 )
 
 # ── Vim motion binds ──────────────────────────────────────────────────────────
@@ -115,17 +116,21 @@ IFS='|' read -r name session dir launch close desc <<< "$proj_data"
 
 # ── Action picker ─────────────────────────────────────────────────────────────
 typeset -a actions=()
-if tmux has-session -t "$session" 2>/dev/null; then
+if [[ -n "$session" ]] && tmux has-session -t "$session" 2>/dev/null; then
   actions+=(
     $'\e[38;5;117m▶\e[0m  attach    Connect to running session'
     $'\e[38;5;228m↺\e[0m  restart   Close and relaunch'
     $'\e[38;5;210m■\e[0m  close     Kill the session and stop services'
   )
-else
+elif [[ -n "$launch" ]]; then
   actions+=(
     $'\e[38;5;114m▶\e[0m  launch    Start a new session'
   )
 fi
+# sync is available for any project with a git repo
+[[ -d "$dir/.git" ]] && actions+=(
+  $'\e[38;5;213m⇡\e[0m  sync      git add . && commit && push'
+)
 
 action_line=$(printf '%s\n' "${actions[@]}" | fzf \
   --ansi \
@@ -136,7 +141,7 @@ action_line=$(printf '%s\n' "${actions[@]}" | fzf \
   --color="$FZF_THEME" \
   --prompt='  › ' \
   --pointer='▶' \
-  --height=12 \
+  --height=14 \
   --header=$'\n  Choose an action\n' \
   --header-first \
   --no-info \
@@ -148,6 +153,7 @@ action_line=$(printf '%s\n' "${actions[@]}" | fzf \
 [[ -z "$action_line" ]] && exit 0
 
 GREEN=$'\033[38;5;114m'
+RED=$'\033[38;5;210m'
 NC=$'\033[0m'
 
 case "$action_line" in
@@ -166,5 +172,17 @@ case "$action_line" in
   *restart*)
     printf "\n${GREEN}  Restarting ${name}...${NC}\n\n"
     zsh "$close" && sleep 1 && zsh "$launch" --here
+    ;;
+  *sync*)
+    printf "\n${GREEN}  Syncing ${name}...${NC}\n\n"
+    git -C "$dir" add . && \
+      git -C "$dir" commit -m "force sync" && \
+      git -C "$dir" push
+    if [[ $? -eq 0 ]]; then
+      printf "\n${GREEN}  Done.${NC}\n\n"
+    else
+      printf "\n${RED}  Sync failed.${NC}\n\n"
+    fi
+    read -r -k1 -s
     ;;
 esac
