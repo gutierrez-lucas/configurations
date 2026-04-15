@@ -7,7 +7,7 @@ source "$current_dir/../lib/utils.sh"
 
 icon=$(get_tmux_option "@tmux2k-copilot-icon" "󰊤")
 cache_file="/tmp/tmux2k_copilot_usage_cache"
-cache_ttl=900 # 15 minutes
+cache_ttl=300 # 5 minutes
 
 fetch_usage() {
     gh api "/users/gutierrez-lucas/settings/billing/premium_request/usage" \
