@@ -10,7 +10,7 @@ cache_file="/tmp/tmux2k_copilot_usage_cache"
 cache_ttl=900 # 15 minutes
 
 fetch_usage() {
-    /home/lucas/.local/bin/gh api "/users/gutierrez-lucas/settings/billing/premium_request/usage" \
+    gh api "/users/gutierrez-lucas/settings/billing/premium_request/usage" \
         -H "X-GitHub-Api-Version: 2022-11-28" 2>/dev/null
 }
 
