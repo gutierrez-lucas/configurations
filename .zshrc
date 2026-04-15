@@ -82,6 +82,9 @@ alias ta='todo add'
 alias tl='todo list'
 alias te='todo edit'
 
+# NVIM
+alias n='nvim'
+
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
