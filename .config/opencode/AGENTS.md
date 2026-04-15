@@ -17,6 +17,7 @@ placed in each project's root directory.
 
 | Project dir | `opencode.json` loads |
 |-------------|----------------------|
+| `/home/lucas/Work/Heethr/` | `~/Work/Heethr/opencode/instructions/heethr.md` + `heethr-root.md` — cross-component investigation |
 | `/home/lucas/Work/Heethr/snow-melting_backend/` | `~/Work/Heethr/opencode/instructions/heethr.md` + `heethr-backend.md` |
 | `/home/lucas/Work/Heethr/snow-melting_dashboard/` | `~/Work/Heethr/opencode/instructions/heethr.md` + `heethr-frontend.md` |
 | `/home/lucas/Work/Heethr/snow-melting_dashboard_shop/` | `~/Work/Heethr/opencode/instructions/heethr.md` + `heethr-frontend.md` |

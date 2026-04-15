@@ -4,8 +4,11 @@ These rules apply unconditionally across every repository and project.
 
 ## Git & GitHub Rules
 
-- **NEVER run `git push` autonomously.** Always stop and ask the user before pushing to any remote.
-- **NEVER run `git add` or `git commit` autonomously.** Always ask the user before staging or committing any changes.
-- **NEVER create pull requests autonomously.** Always ask before running `gh pr create` or any equivalent.
-- Before any git add / commit / push / PR action, explicitly describe what will be staged/committed/pushed and ask for confirmation.
-- This rule is unconditional — it applies regardless of how the user phrases the request (e.g. "save changes", "ship it", "deploy", etc.).
+**Every git operation must come from the explicit will of the user. No exceptions.**
+
+- **NEVER run `git add` autonomously** — not even a single file. Staging requires explicit user instruction.
+- **NEVER run `git commit` autonomously** — not even with a clearly described message. Committing requires explicit user instruction.
+- **NEVER run `git push` autonomously** — not even after a user-approved commit. Pushing requires explicit user instruction.
+- **NEVER create pull requests autonomously.** Never run `gh pr create` or any equivalent without explicit instruction.
+- These rules are unconditional. They apply regardless of how the user phrases a request — "save changes", "ship it", "deploy", "wrap it up", "done", or any other phrasing does NOT constitute permission to run git operations.
+- When git operations are appropriate, describe exactly what would be staged/committed/pushed and wait for the user to say so explicitly.
