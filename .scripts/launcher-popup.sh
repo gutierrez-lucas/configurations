@@ -15,8 +15,8 @@ preview-fg:#cdd6f4,preview-bg:#181825"
 VIM_BINDS='j:down,k:up,ctrl-d:half-page-down,ctrl-u:half-page-up,g:first,G:last'
 
 menu=(
-  $'\e[38;5;228m\e[0m  Calculator    bc — interactive calculator'
-  $'\e[38;5;114m\e[0m  Projects      Launch or manage a project'
+  $'\e[38;5;228m󰃬\e[0m  Calculator    bc — interactive calculator'
+  $'\e[38;5;114m󰏗\e[0m  Projects      Launch or manage a project'
   $'\e[38;5;82m$\e[0m  Dólar         Cotizaciones del dólar'
 )
 

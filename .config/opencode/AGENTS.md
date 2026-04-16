@@ -1,5 +1,5 @@
 # OpenCode Global Instructions Index
-**Last updated:** April 2026 (v2.3)
+**Last updated:** April 2026 (v2.4)
 
 This file is the OpenCode global rules entry point. It is loaded in every session.
 
@@ -23,6 +23,7 @@ placed in each project's root directory.
 | `/home/lucas/Work/Heethr/snow-melting_dashboard_shop/` | `~/Work/Heethr/opencode/instructions/heethr.md` + `heethr-frontend.md` |
 | `/home/lucas/Work/Heethr/snow-melting_mobile/` | `~/Work/Heethr/opencode/instructions/heethr.md` + `heethr-mobile.md` |
 | `/home/lucas/Work/FlareSense/` | `instructions/flaresense.md` — FlareSense ESP32 firmware |
+| `/home/lucas/configurations/` | `instructions/configurations.md` — dotfiles repo, propagation rules |
 
 Heethr instruction files live in the project repo at `~/Work/Heethr/opencode/instructions/`.
 Per-repo `opencode.json` configs live at `~/Work/Heethr/opencode/repos/` and are symlinked

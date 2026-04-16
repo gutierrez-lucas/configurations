@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://local/project.schema.json",
+  "title": "Project",
+  "description": "Launcher project definition. Describes display info, tmux session layout, and optional lifecycle scripts.",
+  "type": "object",
+  "required": ["name", "description", "dir"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "name": {
+      "type": "string",
+      "description": "Display name shown in the project picker.",
+      "examples": ["Heethr", "FlareSense", "Notes"]
+    },
+
+    "description": {
+      "type": "string",
+      "description": "One-line description shown in the fzf preview.",
+      "examples": ["Snow melting platform — backend, dashboard & shop"]
+    },
+
+    "dir": {
+      "type": "string",
+      "description": "Absolute path to the project root directory.",
+      "examples": ["/home/lucas/Work/Heethr"]
+    },
+
+    "session": {
+      "type": "string",
+      "description": "tmux session name. If omitted the project has no session and no launch/close actions are available.",
+      "examples": ["Heethr", "FlareSense"]
+    },
+
+    "lifecycle": {
+      "type": "object",
+      "description": "Named lifecycle scripts surfaced as actions in the launcher. Any key is valid — each key becomes an action whose label matches the key name and whose value is the absolute path to the script to run. Keys are shown in definition order.",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Absolute path to the script for this lifecycle action.",
+        "examples": ["/home/lucas/Work/Heethr/scripts/start-local-system.sh"]
+      },
+      "examples": [
+        {
+          "start":   "/home/lucas/Work/Heethr/scripts/start-local-system.sh",
+          "stop":    "/home/lucas/Work/Heethr/scripts/stop-local-system.sh",
+          "restart": "/home/lucas/Work/Heethr/scripts/restart-local-system.sh"
+        }
+      ]
+    },
+
+    "tmux": {
+      "type": "object",
+      "description": "tmux session layout. Required when 'session' is set.",
+      "required": ["windows"],
+      "additionalProperties": false,
+      "properties": {
+
+        "windows": {
+          "type": "array",
+          "description": "Ordered list of windows. The first entry creates the session; subsequent entries are appended.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+
+              "name": {
+                "type": "string",
+                "description": "Window name as shown in the tmux status bar.",
+                "examples": ["start", "IDE", "Shell", "OpenCode", "Monitor"]
+              },
+
+              "command": {
+                "type": "string",
+                "description": "Command passed directly as the pane executable (new-session / new-window last arg). Use this for regular programs. Mutually exclusive with send_keys.",
+                "examples": ["nvim .", "bash /home/lucas/Work/Heethr/scripts/start-local-system.sh"]
+              },
+
+              "send_keys": {
+                "type": "string",
+                "description": "Command sent via tmux send-keys into an already-running interactive shell. Use this when the command is a shell alias or needs sourced environment (e.g. exportidf). Mutually exclusive with command.",
+                "examples": ["exportidf", "exportidf && nvim ."]
+              },
+
+              "source_tmux_conf": {
+                "type": "boolean",
+                "description": "When true, sources ~/.tmux.conf in this window after creation. Needed for windows created before the tmux plugin chain runs.",
+                "default": false
+              }
+
+            },
+            "not": {
+              "required": ["command", "send_keys"],
+              "description": "command and send_keys are mutually exclusive."
+            }
+          }
+        },
+
+        "focus": {
+          "type": "string",
+          "description": "Name of the window to select after all windows are created. Defaults to the first window.",
+          "examples": ["start", "IDE"]
+        }
+
+      }
+    }
+
+  },
+
+  "if": { "required": ["session"] },
+  "then": { "required": ["tmux"] }
+}

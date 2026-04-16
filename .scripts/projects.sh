@@ -2,13 +2,14 @@
 
 SELF="${(%):-%x}"
 SCRIPTS_DIR="/home/lucas/.scripts"
+PROJECTS_DIR="$SCRIPTS_DIR/projects"
 
 # ── Project registry ───────────────────────────────────────────────────────────
-# NAME | SESSION | DIR | LAUNCH | CLOSE | DESC
-typeset -a PROJECTS=(
-  "Heethr|Heethr|/home/lucas/Work/Heethr|$SCRIPTS_DIR/launch_heethr.sh|$SCRIPTS_DIR/close_heethr.sh|Snow melting platform — backend, dashboard & shop"
-  "FlareSense|FlareSense|/home/lucas/Work/FlareSense|$SCRIPTS_DIR/launch_flare.sh|$SCRIPTS_DIR/close_flare.sh|ESP32 firmware & environmental sensing"
-  "Notes||/home/lucas/Documents/notes|||Obsidian vault"
+# Each entry is the path to a project.json file.
+typeset -a PROJECT_FILES=(
+  "$PROJECTS_DIR/heethr.json"
+  "$PROJECTS_DIR/flaresense.json"
+  "$PROJECTS_DIR/notes.json"
 )
 
 # ── Vim motion binds ──────────────────────────────────────────────────────────
@@ -23,10 +24,13 @@ preview-fg:#cdd6f4,preview-bg:#181825"
 
 # ── Self-invoked preview mode ─────────────────────────────────────────────────
 if [[ "$1" == "--preview" ]]; then
-  IFS='|' read -r name session dir launch close desc <<< "$2"
+  JSON="$2"
+  [[ ! -f "$JSON" ]] && exit 0
 
-  # Guard: if we didn't get valid pipe-separated data, bail out silently
-  [[ -z "$session" ]] && exit 0
+  name=$(jq    -r '.name'             "$JSON")
+  desc=$(jq    -r '.description'      "$JSON")
+  dir=$(jq     -r '.dir'              "$JSON")
+  session=$(jq -r '.session // empty' "$JSON")
 
   printf '\n'
   printf '  \033[1m\033[38;5;117m%s\033[0m\n' "$name"
@@ -36,16 +40,20 @@ if [[ "$1" == "--preview" ]]; then
   printf '\n'
 
   # Session status
-  if tmux has-session -t "$session" 2>/dev/null; then
-    printf '  \033[38;5;114m● session active\033[0m\n'
-    printf '\n'
-    printf '  \033[2mwindows\033[0m\n'
-    tmux list-windows -t "$session" -F "    #I  #W" 2>/dev/null | \
-      while IFS= read -r line; do
-        printf '  \033[38;5;117m%s\033[0m\n' "$line"
-      done
+  if [[ -n "$session" ]]; then
+    if tmux has-session -t "$session" 2>/dev/null; then
+      printf '  \033[38;5;114m● session active\033[0m\n'
+      printf '\n'
+      printf '  \033[2mwindows\033[0m\n'
+      tmux list-windows -t "$session" -F "    #I  #W" 2>/dev/null | \
+        while IFS= read -r line; do
+          printf '  \033[38;5;117m%s\033[0m\n' "$line"
+        done
+    else
+      printf '  \033[38;5;210m○ session not running\033[0m\n'
+    fi
   else
-    printf '  \033[38;5;210m○ session not running\033[0m\n'
+    printf '  \033[38;5;245m— no session\033[0m\n'
   fi
 
   printf '\n'
@@ -73,16 +81,24 @@ fi
 
 # ── Build fzf entries ─────────────────────────────────────────────────────────
 typeset -a entries=()
-for proj in "${PROJECTS[@]}"; do
-  IFS='|' read -r name session dir launch close desc <<< "$proj"
-  if tmux has-session -t "$session" 2>/dev/null; then
+for json in "${PROJECT_FILES[@]}"; do
+  [[ ! -f "$json" ]] && continue
+
+  name=$(jq    -r '.name'             "$json")
+  desc=$(jq    -r '.description'      "$json")
+  session=$(jq -r '.session // empty' "$json")
+  icon=$(jq    -r '.icon // ""'       "$json")
+
+  if [[ -n "$session" ]] && tmux has-session -t "$session" 2>/dev/null; then
     dot=$'\e[38;5;114m●\e[0m'
   else
     dot=$'\e[38;5;210m○\e[0m'
   fi
+
+  icon_col=$(printf '%-2s' "$icon")
   name_col=$(printf '%-14s' "$name")
   desc_dim=$'\e[2m'"$desc"$'\e[0m'
-  entries+=("${dot}  ${name_col}  ${desc_dim}"$'\t'"${proj}")
+  entries+=("${dot}  ${icon_col}  ${name_col}  ${desc_dim}"$'\t'"${json}")
 done
 
 # ── Project picker ────────────────────────────────────────────────────────────
@@ -111,37 +127,62 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
 
 [[ -z "$selected" ]] && exit 0
 
-proj_data=$(printf '%s' "$selected" | cut -f2)
-IFS='|' read -r name session dir launch close desc <<< "$proj_data"
+IFS=$'\t' read -r _display json <<< "$selected"
+name=$(jq    -r '.name'             "$json")
+session=$(jq -r '.session // empty' "$json")
+dir=$(jq     -r '.dir'              "$json")
 
-# ── Action picker ─────────────────────────────────────────────────────────────
-typeset -a actions=()
-if [[ -n "$session" ]] && tmux has-session -t "$session" 2>/dev/null; then
-  actions+=(
-    $'\e[38;5;117m▶\e[0m  attach    Connect to running session'
-    $'\e[38;5;228m↺\e[0m  restart   Close and relaunch'
-    $'\e[38;5;210m■\e[0m  close     Kill the session and stop services'
-  )
-elif [[ -n "$launch" ]]; then
-  actions+=(
-    $'\e[38;5;114m▶\e[0m  launch    Start a new session'
-  )
+# ── Read all lifecycle keys dynamically ───────────────────────────────────────
+# lc_keys: ordered list of key names present in lifecycle
+# lc_map:  associative array  key -> script path
+typeset -a lc_keys=()
+typeset -A lc_map=()
+if jq -e '.lifecycle' "$json" &>/dev/null; then
+  while IFS=$'\t' read -r key script_path; do
+    lc_keys+=("$key")
+    lc_map[$key]="$script_path"
+  done < <(jq -r '.lifecycle | to_entries[] | [.key, .value] | @tsv' "$json")
 fi
-# sync is available for any project with a git repo
-[[ -d "$dir/.git" ]] && actions+=(
-  $'\e[38;5;213m⇡\e[0m  sync      git add . && commit && push'
+
+# ── Action icon lookup ────────────────────────────────────────────────────────
+typeset -A ACTION_ICONS=(
+  [start]="▶"
+  [stop]="■"
+  [restart]="↺"
+  [build]="󰑮"
+  [deploy]="󰅧"
+  [logs]="󰌱"
+  [sync]="󰓦"
+  [open]="󰏌"
+  [test]=""
 )
 
-action_line=$(printf '%s\n' "${actions[@]}" | fzf \
+# ── Action picker ─────────────────────────────────────────────────────────────
+# Only lifecycle-defined actions are shown.
+# Entries are tab-delimited:  <display>\t<action_tag>\t<script_path>
+typeset -a actions=()
+
+for key in "${lc_keys[@]}"; do
+  action_icon="${ACTION_ICONS[$key]:-⚙}"
+  actions+=(
+    $'\e[38;5;228m'"${action_icon}"$'\e[0m  '"$key"$'\t'"lc:$key"$'\t'"${lc_map[$key]}"
+  )
+done
+
+[[ ${#actions[@]} -eq 0 ]] && exit 0
+
+selected_action=$(printf '%s\n' "${actions[@]}" | fzf \
   --ansi \
   --no-sort \
+  --delimiter=$'\t' \
+  --with-nth=1 \
   --border=rounded \
   --border-label="  $name  " \
   --border-label-pos=2 \
   --color="$FZF_THEME" \
   --prompt='  › ' \
   --pointer='▶' \
-  --height=14 \
+  --height=100% \
   --header=$'\n  Choose an action\n' \
   --header-first \
   --no-info \
@@ -150,39 +191,18 @@ action_line=$(printf '%s\n' "${actions[@]}" | fzf \
   --bind='load:rebind(enter)' \
 )
 
-[[ -z "$action_line" ]] && exit 0
+[[ -z "$selected_action" ]] && exit 0
+
+IFS=$'\t' read -r _display action_tag action_script <<< "$selected_action"
 
 GREEN=$'\033[38;5;114m'
-RED=$'\033[38;5;210m'
 NC=$'\033[0m'
 
-case "$action_line" in
-  *launch*)
-    printf "\n${GREEN}  Launching ${name}...${NC}\n\n"
-    zsh "$launch" --here
-    ;;
-  *attach*)
-    printf "\n${GREEN}  Attaching to ${name}...${NC}\n\n"
-    tmux switch-client -t "$session"
-    ;;
-  *close*)
-    printf "\n${GREEN}  Closing ${name}...${NC}\n\n"
-    zsh "$close"
-    ;;
-  *restart*)
-    printf "\n${GREEN}  Restarting ${name}...${NC}\n\n"
-    zsh "$close" && sleep 1 && zsh "$launch" --here
-    ;;
-  *sync*)
-    printf "\n${GREEN}  Syncing ${name}...${NC}\n\n"
-    git -C "$dir" add . && \
-      git -C "$dir" commit -m "force sync" && \
-      git -C "$dir" push
-    if [[ $? -eq 0 ]]; then
-      printf "\n${GREEN}  Done.${NC}\n\n"
-    else
-      printf "\n${RED}  Sync failed.${NC}\n\n"
-    fi
-    read -r -k1 -s
-    ;;
-esac
+lc_key="${action_tag#lc:}"
+printf "\n${GREEN}  Running ${name} ${lc_key}...${NC}\n\n"
+bash "$action_script"
+
+# After a start action, switch focus to the new session
+if [[ "$lc_key" == "start" && -n "$session" ]]; then
+  tmux switch-client -t "$session" 2>/dev/null
+fi

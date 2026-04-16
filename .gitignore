@@ -16,6 +16,8 @@
 #scripts
 !/.scripts/
 !/.scripts/*
+!/.scripts/projects/
+!/.scripts/projects/*
 
 # .config/alacritty
 !/.config/
@@ -61,8 +63,11 @@
 # .config/opencode
 !/.config/opencode/
 !/.config/opencode/AGENTS.md
+!/.config/opencode/opencode.json
 !/.config/opencode/instructions/
 !/.config/opencode/instructions/*
+
+!/opencode.json
 
 !/.engram/
 !/.engram/*
