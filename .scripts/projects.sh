@@ -200,9 +200,16 @@ NC=$'\033[0m'
 
 lc_key="${action_tag#lc:}"
 printf "\n${GREEN}  Running ${name} ${lc_key}...${NC}\n\n"
-bash "$action_script"
+LAUNCHED_FROM_PROJECTS=1 bash "$action_script"
 
-# After a start action, switch focus to the new session
+# After a start action, switch focus to the new session.
+# If a tmux client exists, switch it there.
+# Otherwise open a new Alacritty window, fully detached so it survives
+# after the launcher terminal closes.
 if [[ "$lc_key" == "start" && -n "$session" ]]; then
-  tmux switch-client -t "$session" 2>/dev/null
+  if tmux list-clients 2>/dev/null | grep -q .; then
+    tmux switch-client -t "$session" 2>/dev/null
+  else
+    setsid alacritty -e tmux attach-session -t "$session" >/dev/null 2>&1 &
+  fi
 fi
