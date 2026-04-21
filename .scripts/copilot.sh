@@ -42,7 +42,7 @@ main() {
         return
     fi
 
-    local used limit pct
+    local used net discount limit pct
     used=$(echo "$json" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
@@ -50,7 +50,13 @@ total = sum(item['grossQuantity'] for item in data.get('usageItems', []))
 print(int(total))
 " 2>/dev/null)
 
-    local discount
+    net=$(echo "$json" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+total = sum(item['netQuantity'] for item in data.get('usageItems', []))
+print(int(total))
+" 2>/dev/null)
+
     discount=$(echo "$json" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
@@ -58,13 +64,17 @@ total = sum(item['discountQuantity'] for item in data.get('usageItems', []))
 print(int(total))
 " 2>/dev/null)
 
-    if [ -z "$used" ] || [ -z "$discount" ]; then
+    if [ -z "$used" ] || [ -z "$discount" ] || [ -z "$net" ]; then
         echo "$icon --"
         return
     fi
 
-    # Auto-detect plan limit from discount total
-    if [ "$discount" -gt 300 ]; then
+    # When in overage (netQuantity > 0), discountQuantity has been fully exhausted
+    # and equals the real plan ceiling — use it directly.
+    # When under limit, fall back to tier detection (discountQuantity < ceiling).
+    if [ "$net" -gt 0 ]; then
+        limit="$discount"
+    elif [ "$discount" -gt 300 ]; then
         limit=1500  # Pro+
     elif [ "$discount" -gt 50 ]; then
         limit=300   # Pro
