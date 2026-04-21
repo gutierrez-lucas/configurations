@@ -10,8 +10,7 @@ cache_file="/tmp/tmux2k_copilot_usage_cache"
 cache_ttl=300 # 5 minutes
 
 fetch_usage() {
-    gh api "/users/gutierrez-lucas/settings/billing/premium_request/usage" \
-        -H "X-GitHub-Api-Version: 2022-11-28" 2>/dev/null
+    gh api "/copilot_internal/user" 2>/dev/null
 }
 
 get_cached_or_fetch() {
@@ -42,50 +41,22 @@ main() {
         return
     fi
 
-    local used net discount limit pct
-    used=$(echo "$json" | python3 -c "
+    local pct
+    pct=$(echo "$json" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-total = sum(item['grossQuantity'] for item in data.get('usageItems', []))
-print(int(total))
+pi = data.get('quota_snapshots', {}).get('premium_interactions', {})
+pct_remaining = pi.get('percent_remaining')
+if pct_remaining is None:
+    print('--')
+else:
+    used_pct = 100 - pct_remaining
+    print(f'{used_pct:.1f}')
 " 2>/dev/null)
 
-    net=$(echo "$json" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-total = sum(item['netQuantity'] for item in data.get('usageItems', []))
-print(int(total))
-" 2>/dev/null)
-
-    discount=$(echo "$json" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-total = sum(item['discountQuantity'] for item in data.get('usageItems', []))
-print(int(total))
-" 2>/dev/null)
-
-    if [ -z "$used" ] || [ -z "$discount" ] || [ -z "$net" ]; then
+    if [ -z "$pct" ] || [ "$pct" = "--" ]; then
         echo "$icon --"
         return
-    fi
-
-    # When in overage (netQuantity > 0), discountQuantity has been fully exhausted
-    # and equals the real plan ceiling — use it directly.
-    # When under limit, fall back to tier detection (discountQuantity < ceiling).
-    if [ "$net" -gt 0 ]; then
-        limit="$discount"
-    elif [ "$discount" -gt 300 ]; then
-        limit=1500  # Pro+
-    elif [ "$discount" -gt 50 ]; then
-        limit=300   # Pro
-    else
-        limit=50    # Free
-    fi
-
-    if [ "$limit" -gt 0 ]; then
-        pct=$(( used * 100 / limit ))
-    else
-        pct=0
     fi
 
     echo "$icon ${pct}%"
