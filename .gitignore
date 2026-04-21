@@ -67,6 +67,7 @@
 !/.config/opencode/instructions/
 !/.config/opencode/instructions/*
 
+!/AGENTS.md
 !/opencode.json
 
 !/.engram/
