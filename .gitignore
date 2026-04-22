@@ -16,6 +16,8 @@
 #scripts
 !/.scripts/
 !/.scripts/*
+!/.scripts/projects/
+!/.scripts/projects/*
 
 # .config/alacritty
 !/.config/
@@ -24,6 +26,7 @@
 
 # .config/nvim
 !/.config/nvim/
+!/.config/nvim/lazyvim.json
 !/.config/nvim/lua/
 !/.config/nvim/lua/*
 !/.config/nvim/lua/config/
@@ -41,8 +44,32 @@
 !/.tmux/plugins/tmux2k/plugins/
 !/.tmux/plugins/tmux2k/plugins/*
 
+# .config/hypr
+!/.config/hypr/
+!/.config/hypr/hyperidle
+!/.config/hypr/hypridle.conf
+!/.config/hypr/hyprland.conf
+!/.config/hypr/hyprlock.conf
+!/.config/hypr/lockdead.png
+!/.config/hypr/lockdead2.png
+!/.config/hypr/monitors.conf
+!/.config/hypr/workspaces.conf
+!/.config/hypr/wall0.png
+!/.config/hypr/wall1.png
+!/.config/hypr/wall2.png
+!/.config/hypr/scripts/
+!/.config/hypr/scripts/*
+
 # .config/opencode
 !/.config/opencode/
 !/.config/opencode/AGENTS.md
+!/.config/opencode/opencode.json
 !/.config/opencode/instructions/
 !/.config/opencode/instructions/*
+
+!/AGENTS.md
+!/opencode.json
+
+!/.engram/
+!/.engram/*
+

@@ -1,0 +1,11 @@
+general {
+    lock = false
+    before_sleep_cmd = ""
+    after_sleep_cmd = ""
+}
+
+listener {
+    timeout = 900          # 900 seconds = 15 minutes
+    on-timeout = hyprctl dispatch dpms off
+    on-resume = hyprctl dispatch dpms on
+}

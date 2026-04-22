@@ -1,0 +1,22 @@
+{
+  "$schema": "./project.schema.json",
+  "icon": "󱐋",
+  "name": "FlareSense",
+  "description": "ESP32 firmware & environmental sensing",
+  "dir": "/home/lucas/Work/FlareSense",
+  "session": "FlareSense",
+  "tmux": {
+    "windows": [
+      {
+        "name": "Shell",
+        "send_keys": "exportidf",
+        "source_tmux_conf": true
+      },
+      {
+        "name": "IDE",
+        "send_keys": "exportidf && nvim ."
+      }
+    ],
+    "focus": "IDE"
+  }
+}

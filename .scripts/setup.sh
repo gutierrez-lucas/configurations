@@ -223,14 +223,18 @@ set_default_shell() {
   success "Default shell changed to zsh (takes effect on next login)."
 }
 
-# ── 14. Apply dotfiles (symlink or copy) ──────────────────────────────────────
+# ── 14. Apply dotfiles (full symlink strategy) ────────────────────────────────
+# Every tracked path is symlinked from the repo. Editing the repo file IS editing
+# the live file — no manual copy needed. Dirs (nvim, opencode, alacritty, scripts)
+# are linked as whole directories so new files inside auto-propagate.
 apply_dotfiles() {
   info "Applying dotfiles from $REPO_DIR..."
 
-  # Helper: backup existing file then symlink
+  mkdir -p "$HOME/.config"
+
+  # Helper: backup existing target then create symlink
   link() {
-    local src="$1"
-    local dst="$2"
+    local src="$1" dst="$2"
     if [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ]; then
       info "Already linked: $dst"
       return
@@ -243,48 +247,50 @@ apply_dotfiles() {
     success "Linked $dst → $src"
   }
 
-  # zsh
-  link "$REPO_DIR/.zshrc"   "$HOME/.zshrc"
+  # Standalone dotfiles
+  link "$REPO_DIR/.zshrc"    "$HOME/.zshrc"
   link "$REPO_DIR/.p10k.zsh" "$HOME/.p10k.zsh"
-
-  # tmux
+  link "$REPO_DIR/.fzf.zsh"  "$HOME/.fzf.zsh"
   link "$REPO_DIR/.tmux.conf" "$HOME/.tmux.conf"
 
-  # alacritty
-  mkdir -p "$HOME/.config/alacritty"
-  link "$REPO_DIR/.config/alacritty/alacritty.toml" "$HOME/.config/alacritty/alacritty.toml"
-
-  # nvim — symlink the entire ~/.config/nvim to the repo's nvim config.
-  # The repo contains init.lua, lazyvim.json, stylua.toml and lua/{config,plugins}.
-  local NVIM_SRC="$REPO_DIR/.config/nvim"
-  local NVIM_DST="$HOME/.config/nvim"
-  mkdir -p "$HOME/.config"
-  if [ -L "$NVIM_DST" ] && [ "$(readlink -f "$NVIM_DST")" = "$(readlink -f "$NVIM_SRC")" ]; then
-    info "Already linked: $NVIM_DST"
-  else
-    if [ -e "$NVIM_DST" ] && [ ! -L "$NVIM_DST" ]; then
-      warn "Backing up existing $NVIM_DST → ${NVIM_DST}.bak"
-      mv "$NVIM_DST" "${NVIM_DST}.bak"
-    fi
-    ln -sf "$NVIM_SRC" "$NVIM_DST"
-    success "Linked $NVIM_DST → $NVIM_SRC"
-  fi
-
-  # opencode global config
-  local OC_SRC="$REPO_DIR/.config/opencode"
-  local OC_DST="$HOME/.config/opencode"
-  if [ -d "$OC_SRC" ]; then
-    mkdir -p "$HOME/.config"
-    if [ -L "$OC_DST" ] && [ "$(readlink -f "$OC_DST")" = "$(readlink -f "$OC_SRC")" ]; then
-      info "Already linked: $OC_DST"
-    else
-      [ -e "$OC_DST" ] && mv "$OC_DST" "${OC_DST}.bak"
-      ln -sf "$OC_SRC" "$OC_DST"
-      success "Linked opencode config: $OC_DST → $OC_SRC"
-    fi
-  fi
+  # Whole-directory symlinks — new files inside auto-propagate
+  link "$REPO_DIR/.scripts"          "$HOME/.scripts"
+  link "$REPO_DIR/.config/nvim"      "$HOME/.config/nvim"
+  link "$REPO_DIR/.config/alacritty" "$HOME/.config/alacritty"
+  link "$REPO_DIR/.config/opencode"  "$HOME/.config/opencode"
 
   success "Dotfiles applied."
+}
+
+# ── 14b. tmux2k custom plugins ────────────────────────────────────────────────
+# calc and copilot are custom tmux2k plugins that live in the repo under
+# .scripts/. After TPM installs tmux2k, we symlink them into the tmux2k plugins
+# directory. TPM manages that dir as a git repo — any file added directly would
+# be lost on `tpm update`. Symlinks survive because git ignores unknown files.
+link_tmux2k_plugins() {
+  local TMUX2K_PLUGINS_DIR="$HOME/.tmux/plugins/tmux2k/plugins"
+  if [ ! -d "$TMUX2K_PLUGINS_DIR" ]; then
+    warn "tmux2k plugins dir not found ($TMUX2K_PLUGINS_DIR) — skipping custom plugin links."
+    warn "Run prefix+I in tmux first, then re-run: bash .scripts/setup.sh"
+    return
+  fi
+  info "Linking custom tmux2k plugins..."
+  for plugin in calc copilot; do
+    local src="$REPO_DIR/.scripts/${plugin}.sh"
+    local dst="$TMUX2K_PLUGINS_DIR/${plugin}.sh"
+    if [ ! -f "$src" ]; then
+      warn "Source not found: $src — skipping."
+      continue
+    fi
+    if [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ]; then
+      info "Already linked: $dst"
+    else
+      [ -e "$dst" ] && mv "$dst" "${dst}.bak"
+      ln -sf "$src" "$dst"
+      success "Linked tmux2k plugin: $dst → $src"
+    fi
+  done
+  success "tmux2k custom plugins linked."
 }
 
 # ── 15. shell-color-scripts (used by snacks dashboard) ───────────────────────
@@ -381,6 +387,7 @@ main() {
   set_default_shell
   apply_dotfiles
   install_tmux_plugins
+  link_tmux2k_plugins
 
   echo ""
   success "=== Bootstrap complete! ==="

@@ -41,7 +41,15 @@ return {
           bold = true,
           bg = "#3d59a1",
         },
+        hint_diagnostic_selected = {
+          bold = true,
+          bg = "#3d59a1",
+        },
         info_selected = {
+          bold = true,
+          bg = "#3d59a1",
+        },
+        info_diagnostic_selected = {
           bold = true,
           bg = "#3d59a1",
         },
@@ -49,8 +57,26 @@ return {
           bold = true,
           bg = "#3d59a1",
         },
+        warning_diagnostic_selected = {
+          bold = true,
+          bg = "#3d59a1",
+        },
         error_selected = {
           bold = true,
+          bg = "#3d59a1",
+        },
+        error_diagnostic_selected = {
+          bold = true,
+          bg = "#3d59a1",
+        },
+        -- The indicator (colored bar/dot on the left edge of the selected tab)
+        indicator_selected = {
+          fg = "#3d59a1",
+          bg = "#3d59a1",
+        },
+        -- Modified (unsaved) indicator dot on the active buffer
+        modified_selected = {
+          fg = "#9ece6a",
           bg = "#3d59a1",
         },
         -- Inactive buffers dimmed down

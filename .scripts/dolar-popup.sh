@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # dolar-popup.sh — display all dollar rates in a tmux popup
-# Called by the mouse binding in .tmux.conf
+# Called via the launcher (launcher-wrapper.sh → launcher-popup.sh)
 
 export LC_ALL=en_US.UTF-8
 
@@ -85,4 +85,4 @@ if last_update:
 print(f"\n{CYAN}Presioná cualquier tecla para cerrar…{RESET}")
 PYEOF
 
-read -r -n1
+read -r -n1 -s

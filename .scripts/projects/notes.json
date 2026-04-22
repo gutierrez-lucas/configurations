@@ -1,0 +1,7 @@
+{
+  "$schema": "./project.schema.json",
+  "icon": "󰎞",
+  "name": "Notes",
+  "description": "Obsidian vault",
+  "dir": "/home/lucas/Documents/notes"
+}

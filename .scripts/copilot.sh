@@ -7,11 +7,10 @@ source "$current_dir/../lib/utils.sh"
 
 icon=$(get_tmux_option "@tmux2k-copilot-icon" "󰊤")
 cache_file="/tmp/tmux2k_copilot_usage_cache"
-cache_ttl=900 # 15 minutes
+cache_ttl=300 # 5 minutes
 
 fetch_usage() {
-    /home/lucas/.local/bin/gh api "/users/gutierrez-lucas/settings/billing/premium_request/usage" \
-        -H "X-GitHub-Api-Version: 2022-11-28" 2>/dev/null
+    gh api "/copilot_internal/user" 2>/dev/null
 }
 
 get_cached_or_fetch() {
@@ -42,40 +41,22 @@ main() {
         return
     fi
 
-    local used limit pct
-    used=$(echo "$json" | python3 -c "
+    local pct
+    pct=$(echo "$json" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-total = sum(item['grossQuantity'] for item in data.get('usageItems', []))
-print(int(total))
+pi = data.get('quota_snapshots', {}).get('premium_interactions', {})
+pct_remaining = pi.get('percent_remaining')
+if pct_remaining is None:
+    print('--')
+else:
+    used_pct = 100 - pct_remaining
+    print(f'{used_pct:.1f}')
 " 2>/dev/null)
 
-    local discount
-    discount=$(echo "$json" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-total = sum(item['discountQuantity'] for item in data.get('usageItems', []))
-print(int(total))
-" 2>/dev/null)
-
-    if [ -z "$used" ] || [ -z "$discount" ]; then
+    if [ -z "$pct" ] || [ "$pct" = "--" ]; then
         echo "$icon --"
         return
-    fi
-
-    # Auto-detect plan limit from discount total
-    if [ "$discount" -gt 300 ]; then
-        limit=1500  # Pro+
-    elif [ "$discount" -gt 50 ]; then
-        limit=300   # Pro
-    else
-        limit=50    # Free
-    fi
-
-    if [ "$limit" -gt 0 ]; then
-        pct=$(( used * 100 / limit ))
-    else
-        pct=0
     fi
 
     echo "$icon ${pct}%"

@@ -67,7 +67,7 @@ if command -v eza &> /dev/null; then
     alias lta='lt -a'
 fi
 
-alias gist='git status'
+alias gis='git status'
 alias gil='git log --graph --oneline --all --color'
 ## scripts
 alias launch_flare='/home/lucas/.scripts/launch_flare.sh'
@@ -81,6 +81,9 @@ alias todo='/home/lucas/.scripts/todo.sh'
 alias ta='todo add'
 alias tl='todo list'
 alias te='todo edit'
+
+# NVIM
+alias n='nvim'
 
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
