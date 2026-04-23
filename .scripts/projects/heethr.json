@@ -6,9 +6,9 @@
   "dir": "/home/lucas/Work/Heethr",
   "session": "Heethr",
   "lifecycle": {
-    "start": "/home/lucas/Work/Heethr/scripts/start.sh",
-    "restart": "/home/lucas/Work/Heethr/scripts/restart.sh",
-    "stop": "/home/lucas/Work/Heethr/scripts/stop.sh"
+    "start": "zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json",
+    "restart": "zsh ~/.scripts/close_heethr.sh && sleep 1 && zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json",
+    "stop": "zsh ~/.scripts/close_heethr.sh"
   },
   "tmux": {
     "windows": [

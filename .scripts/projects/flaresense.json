@@ -5,6 +5,10 @@
   "description": "ESP32 firmware & environmental sensing",
   "dir": "/home/lucas/Work/FlareSense",
   "session": "FlareSense",
+  "lifecycle": {
+    "start": "zsh ~/.scripts/launch_project.sh ~/.scripts/projects/flaresense.json",
+    "stop": "zsh ~/.scripts/close_flare.sh"
+  },
   "tmux": {
     "windows": [
       {

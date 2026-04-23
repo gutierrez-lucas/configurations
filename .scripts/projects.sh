@@ -117,7 +117,7 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
   --border-label='  Project Launcher  ' \
   --border-label-pos=2 \
   --color="$FZF_THEME" \
-  --preview="'$SELF' --preview {2}" \
+  --preview="zsh $SELF --preview {2}" \
   --preview-window='right:48%:wrap:border-left' \
   --prompt='  › ' \
   --pointer='▶' \
@@ -208,7 +208,9 @@ NC=$'\033[0m'
 
 lc_key="${action_tag#lc:}"
 printf "\n${GREEN}  Running ${name} ${lc_key}...${NC}\n\n"
-LAUNCHED_FROM_PROJECTS=1 bash "$action_script"
+
+# Expand ~ and run the command with zsh to preserve all syntax
+LAUNCHED_FROM_PROJECTS=1 zsh -c "$(echo "$action_script" | sed "s|~|$HOME|g")"
 
 # After a start action, switch focus to the new session.
 # If a tmux client exists, switch it there.
