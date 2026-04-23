@@ -2,8 +2,8 @@
 
 export LC_ALL=en_US.UTF-8
 
-current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$current_dir/../lib/utils.sh"
+# Get utils from tmux2k lib dir (the source of truth)
+source "$HOME/.tmux/plugins/tmux2k/lib/utils.sh"
 
 icon=$(get_tmux_option "@tmux2k-copilot-icon" "󰊤")
 cache_file="/tmp/tmux2k_copilot_usage_cache"
@@ -59,7 +59,14 @@ else:
         return
     fi
 
-    echo "$icon ${pct}%"
+    # Check if consumption is over 100% and apply red background with high contrast
+    if (( $(echo "$pct > 100" | bc -l) )); then
+        # Red background (colour196) with white (colour255) text, bold
+        # Reset to default after to avoid leaking into adjacent elements
+        printf "#[bg=colour196,fg=colour255,bold]%s %s%%#[default]" "$icon" "$pct"
+    else
+        printf "%s %s%%" "$icon" "$pct"
+    fi
 }
 
 main

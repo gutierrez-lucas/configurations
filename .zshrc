@@ -76,6 +76,8 @@ alias launch_heethr='/home/lucas/.scripts/launch_heethr.sh'
 alias close_heethr='/home/lucas/.scripts/close_heethr.sh'
 alias projects='/home/lucas/.scripts/projects.sh'
 
+alias o='opencode'
+
 # TODO
 alias todo='/home/lucas/.scripts/todo.sh'
 alias ta='todo add'
