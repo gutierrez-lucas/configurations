@@ -25,8 +25,7 @@
     },
     "sdd-apply": {
       "description": "Implement code changes from task definitions",
-      "hidden": true,
-      "mode": "subagent",
+      "mode": "primary",
       "model": "github-copilot/claude-haiku-4.5",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-apply.md}",
       "tools": {
@@ -51,8 +50,7 @@
     },
     "sdd-design": {
       "description": "Create technical design from proposals",
-      "hidden": true,
-      "mode": "subagent",
+      "mode": "primary",
       "model": "github-copilot/claude-sonnet-4.6",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-design.md}",
       "tools": {
@@ -64,9 +62,8 @@
     },
     "sdd-explore": {
       "description": "Investigate codebase and think through ideas",
-      "hidden": true,
-      "mode": "subagent",
-      "model": "github-copilot/gpt-4.1-mini",
+      "mode": "primary",
+      "model": "github-copilot/gpt-5.1-codex",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-explore.md}",
       "tools": {
         "bash": true,
@@ -77,9 +74,8 @@
     },
     "sdd-init": {
       "description": "Bootstrap SDD context and project configuration",
-      "hidden": true,
-      "mode": "subagent",
-      "model": "github-copilot/gpt-4.1-mini",
+      "mode": "primary",
+      "model": "github-copilot/gemini-2.5-pro",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-init.md}",
       "tools": {
         "bash": true,
@@ -104,7 +100,7 @@
     "sdd-orchestrator": {
       "description": "Agent Teams Orchestrator - coordinates sub-agents, never does work inline",
       "mode": "primary",
-      "model": "github-copilot/claude-sonnet-4.6",
+      "model": "github-copilot/gpt-5",
       "permission": {
         "task": {
           "*": "deny",
@@ -124,9 +120,8 @@
     },
     "sdd-propose": {
       "description": "Create change proposals from explorations",
-      "hidden": true,
-      "mode": "subagent",
-      "model": "github-copilot/claude-haiku-4.5",
+      "mode": "primary",
+      "model": "github-copilot/gemini-3.1-pro-preview",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-propose.md}",
       "tools": {
         "bash": true,
@@ -137,9 +132,8 @@
     },
     "sdd-spec": {
       "description": "Write detailed specifications from proposals",
-      "hidden": true,
-      "mode": "subagent",
-      "model": "github-copilot/claude-sonnet-4.6",
+      "mode": "primary",
+      "model": "github-copilot/claude-opus-4.6",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-spec.md}",
       "tools": {
         "bash": true,
@@ -150,9 +144,8 @@
     },
     "sdd-tasks": {
       "description": "Break down specs and designs into implementation tasks",
-      "hidden": true,
-      "mode": "subagent",
-      "model": "github-copilot/gpt-4.1-mini",
+      "mode": "primary",
+      "model": "github-copilot/gpt-4.1",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-tasks.md}",
       "tools": {
         "bash": true,
