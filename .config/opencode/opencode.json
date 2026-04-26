@@ -63,7 +63,7 @@
     "sdd-explore": {
       "description": "Investigate codebase and think through ideas",
       "mode": "primary",
-      "model": "github-copilot/gpt-5.1-codex",
+      "model": "github-copilot/gpt-5.3-codex",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-explore.md}",
       "tools": {
         "bash": true,
@@ -100,7 +100,7 @@
     "sdd-orchestrator": {
       "description": "Agent Teams Orchestrator - coordinates sub-agents, never does work inline",
       "mode": "primary",
-      "model": "github-copilot/gpt-5",
+      "model": "github-copilot/gpt-5.4",
       "permission": {
         "task": {
           "*": "deny",
@@ -133,7 +133,7 @@
     "sdd-spec": {
       "description": "Write detailed specifications from proposals",
       "mode": "primary",
-      "model": "github-copilot/claude-opus-4.6",
+      "model": "github-copilot/claude-opus-4.7",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-spec.md}",
       "tools": {
         "bash": true,
