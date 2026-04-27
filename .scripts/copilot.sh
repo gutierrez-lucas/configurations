@@ -8,7 +8,7 @@ source "$HOME/.tmux/plugins/tmux2k/lib/utils.sh"
 icon=$(get_tmux_option "@tmux2k-copilot-icon" "󰊤")
 
 fetch_usage() {
-    "$HOME/.local/bin/gh" api "/copilot_internal/user" 2>/dev/null
+    gh api "/copilot_internal/user" 2>/dev/null
 }
 
 main() {
