@@ -16,6 +16,7 @@ typeset -a PROJECT_FILES=(
   "$PROJECTS_DIR/heethr.json"
   "$PROJECTS_DIR/flaresense.json"
   "$PROJECTS_DIR/notes.json"
+  "$PROJECTS_DIR/new-session.json"
 )
 
 # ── Vim motion binds ──────────────────────────────────────────────────────────
@@ -138,6 +139,7 @@ IFS=$'\t' read -r _display json <<< "$selected"
 name=$(jq    -r '.name'             "$json")
 session=$(jq -r '.session // empty' "$json")
 dir=$(jq     -r '.dir'              "$json")
+is_new_session=$(jq -r '.is_new_session // false' "$json")
 
 # ── Read all lifecycle keys dynamically ───────────────────────────────────────
 # lc_keys: ordered list of key names present in lifecycle
@@ -207,6 +209,23 @@ GREEN=$'\033[38;5;114m'
 NC=$'\033[0m'
 
 lc_key="${action_tag#lc:}"
+
+# ── is_new_session: special handling ─────────────────────────────────────
+if [[ "$is_new_session" == "true" && "$lc_key" == "start" ]]; then
+  RESULT=$(mktemp)
+  trap "rm -f '$RESULT'" EXIT
+  tmux popup -w 40 -h 6 -E "echo -n '' | fzf --prompt='Session name: ' --print-query --height=1 --layout=reverse --border=none > '$RESULT'"
+  SESSION_NAME=$(cat "$RESULT" | head -1 | tr -d '\n')
+  SESSION_NAME="${SESSION_NAME:-Playground}"
+  SANITIZED=$(echo "$SESSION_NAME" | tr -cd '[:alnum:]_-')
+  [[ -z "$SANITIZED" ]] && SANITIZED="Playground"
+  tmux has-session -t "$SANITIZED" 2>/dev/null && tmux kill-session -t "$SANITIZED"
+  tmux new-session -d -s "$SANITIZED" -c "$HOME"
+  tmux source-file ~/.tmux.conf
+  tmux switch-client -t "$SANITIZED"
+  exit 0
+fi
+
 printf "\n${GREEN}  Running ${name} ${lc_key}...${NC}\n\n"
 
 # Expand ~ and run the command with zsh to preserve all syntax

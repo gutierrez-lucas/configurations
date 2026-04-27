@@ -1,0 +1,12 @@
+{
+  "$schema": "./project.schema.json",
+  "icon": "＋",
+  "name": "New Session",
+  "description": "Create a new tmux session with ~/.tmux.conf sourced",
+  "dir": "/home/lucas",
+  "session": "",
+  "is_new_session": true,
+  "lifecycle": {
+    "start": "zsh ~/.scripts/new-session.sh"
+  }
+}

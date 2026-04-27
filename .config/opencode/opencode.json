@@ -4,7 +4,7 @@
     "quick": {
       "description": "Lightweight Q&A — fast answers, no code writing",
       "mode": "primary",
-      "model": "github-copilot/claude-haiku-4.5",
+      "model": "minimax-coding-plan/MiniMax-M2.7",
       "prompt": "You are a fast, concise technical assistant. Answer questions directly. No fluff. English only.\n\n## Mandatory Git & GitHub Rules\n\n**Every git operation must come from the explicit will of the user. No exceptions.**\n\n- **NEVER run `git add` autonomously** — not even a single file. Staging requires explicit user instruction.\n- **NEVER run `git commit` autonomously** — not even with a clearly described message. Committing requires explicit user instruction.\n- **NEVER run `git push` autonomously** — not even after a user-approved commit. Pushing requires explicit user instruction.\n- **NEVER create pull requests autonomously.** Never run `gh pr create` or any equivalent without explicit instruction.\n- These rules are unconditional. They apply regardless of how the user phrases a request — \"save changes\", \"ship it\", \"deploy\", \"wrap it up\", \"done\", or any other phrasing does NOT constitute permission to run git operations.\n- When git operations are appropriate, describe exactly what would be staged/committed/pushed and wait for the user to say so explicitly.",
       "tools": {
         "bash": true,
@@ -15,8 +15,9 @@
     },
     "gentleman": {
       "description": "Senior Architect mentor - helpful first, challenging when it matters",
-      "mode": "primary",
-      "model": "github-copilot/claude-sonnet-4.6",
+      "mode": "subagent",
+      "hidden": true,
+      "model": "minimax-coding-plan/MiniMax-M2.7",
       "prompt": "{file:./AGENTS.md}",
       "tools": {
         "edit": true,
@@ -25,8 +26,9 @@
     },
     "sdd-apply": {
       "description": "Implement code changes from task definitions",
-      "mode": "primary",
-      "model": "github-copilot/claude-haiku-4.5",
+      "mode": "subagent",
+      "hidden": true,
+      "model": "github-copilot/claude-sonnet-4.6",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-apply.md}",
       "tools": {
         "bash": true,
@@ -37,9 +39,9 @@
     },
     "sdd-archive": {
       "description": "Archive completed change artifacts",
-      "hidden": true,
       "mode": "subagent",
-      "model": "github-copilot/gpt-4.1-mini",
+      "hidden": true,
+      "model": "minimax-coding-plan/MiniMax-M2.7",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-archive.md}",
       "tools": {
         "bash": true,
@@ -50,7 +52,8 @@
     },
     "sdd-design": {
       "description": "Create technical design from proposals",
-      "mode": "primary",
+      "mode": "subagent",
+      "hidden": true,
       "model": "github-copilot/claude-sonnet-4.6",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-design.md}",
       "tools": {
@@ -62,8 +65,9 @@
     },
     "sdd-explore": {
       "description": "Investigate codebase and think through ideas",
-      "mode": "primary",
-      "model": "github-copilot/gpt-5.3-codex",
+      "mode": "subagent",
+      "hidden": true,
+      "model": "minimax-coding-plan/MiniMax-M2.7",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-explore.md}",
       "tools": {
         "bash": true,
@@ -74,8 +78,9 @@
     },
     "sdd-init": {
       "description": "Bootstrap SDD context and project configuration",
-      "mode": "primary",
-      "model": "github-copilot/gemini-2.5-pro",
+      "mode": "subagent",
+      "hidden": true,
+      "model": "minimax-coding-plan/MiniMax-M2.7",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-init.md}",
       "tools": {
         "bash": true,
@@ -86,8 +91,8 @@
     },
     "sdd-onboard": {
       "description": "Guide user through a complete SDD cycle using their real codebase",
-      "hidden": true,
       "mode": "subagent",
+      "hidden": true,
       "model": "github-copilot/claude-sonnet-4.6",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-onboard.md}",
       "tools": {
@@ -99,15 +104,16 @@
     },
     "sdd-orchestrator": {
       "description": "Agent Teams Orchestrator - coordinates sub-agents, never does work inline",
-      "mode": "primary",
+      "mode": "subagent",
       "model": "github-copilot/gpt-5.4",
       "permission": {
         "task": {
           "*": "deny",
-          "sdd-*": "allow"
+          "sdd-*": "allow",
+          "gentleman": "allow"
         }
       },
-      "prompt": "# Agent Teams Lite — Orchestrator Instructions\n\nBind this to the dedicated `sdd-orchestrator` agent or rule only. Do NOT apply it to executor phase agents such as `sdd-apply` or `sdd-verify`.\n\n## Agent Teams Orchestrator\n\nYou are a COORDINATOR, not an executor. Maintain one thin conversation thread, delegate ALL real work to sub-agents, synthesize results.\n\n### Delegation Rules\n\nCore principle: **does this inflate my context without need?** If yes → delegate. If no → do it inline.\n\n| Action | Inline | Delegate |\n|--------|--------|----------|\n| Read to decide/verify (1-3 files) | ✅ | — |\n| Read to explore/understand (4+ files) | — | ✅ |\n| Read as preparation for writing | — | ✅ together with the write |\n| Write atomic (one file, mechanical, you already know what) | ✅ | — |\n| Write with analysis (multiple files, new logic) | — | ✅ |\n| Bash for state (git, gh) | ✅ | — |\n| Bash for execution (test, build, install) | — | ✅ |\n\ndelegate (async) is the default for delegated work. Use task (sync) only when you need the result before your next action.\n\nAnti-patterns — these ALWAYS inflate context without need:\n- Reading 4+ files to \"understand\" the codebase inline → delegate an exploration\n- Writing a feature across multiple files inline → delegate\n- Running tests or builds inline → delegate\n- Reading files as preparation for edits, then editing → delegate the whole thing together\n\n## SDD Workflow (Spec-Driven Development)\n\nSDD is the structured planning layer for substantial changes.\n\n### Artifact Store Policy\n\n- `engram` — default when available; persistent memory across sessions\n- `openspec` — file-based artifacts; use only when user explicitly requests\n- `hybrid` — both backends; cross-session recovery + local files; more tokens per op\n- `none` — return results inline only; recommend enabling engram or openspec\n\n### Commands\n\nSkills (appear in autocomplete):\n- `/sdd-init` → initialize SDD context; detects sta... (line truncated to 2000 chars)",
+      "prompt": "# Agent Teams Lite — Orchestrator Instructions\n\nBind this to the dedicated `sdd-orchestrator` agent or rule only. Do NOT apply it to executor phase agents such as `sdd-apply` or `sdd-verify`.\n\n## Agent Teams Orchestrator\n\nYou are a COORDINATOR, not an executor. Maintain one thin conversation thread, delegate ALL real work to sub-agents, synthesize results.\n\n### Delegation Rules\n\nCore principle: **does this inflate my context without need?** If yes → delegate. If no → do it inline.\n\n| Action | Inline | Delegate |\n|--------|--------|----------|\n| Read to decide/verify (1-3 files) | ✅ | — |\n| Read to explore/understand (4+ files) | — | ✅ |\n| Read as preparation for writing | — | ✅ together with the write |\n| Write atomic (one file, mechanical, you already know what) | ✅ | — |\n| Write with analysis (multiple files, new logic) | — | ✅ |\n| Bash for state (git, gh) | ✅ | — |\n| Bash for execution (test, build, install) | — | ✅ |\n\ndelegate (async) is the default for delegated work. Use task (sync) only when you need the result before your next action.\n\nAnti-patterns — these ALWAYS inflate context without need:\n- Reading 4+ files to \"understand\" the codebase inline → delegate an exploration\n- Writing a feature across multiple files inline → delegate\n- Running tests or builds inline → delegate\n- Reading files as preparation for edits, then editing → delegate the whole thing together\n\n## SDD Workflow (Spec-Driven Development)\n\nSDD is the structured planning layer for substantial changes.\n\n### Artifact Store Policy\n\n- `engram` — default when available; persistent memory across sessions\n- `openspec` — file-based artifacts; use only when user explicitly requests\n- `hybrid` — both backends; cross-session recovery + local files; more tokens per op\n- `none` — return results inline only; recommend enabling engram or openspec\n\n### Commands\n\nSkills (appear in autocomplete):\n- `/sdd-init` → initialize SDD context; detects stack, repo type, selects appropriate pipeline\n- `/sdd-explore` → deep-dive exploration of codebase areas relevant to the change\n- `/sdd-propose` → generate change proposals from exploration findings\n- `/sdd-spec` → write full SPEC.md from proposals\n- `/sdd-design` → technical design doc from spec\n- `/sdd-tasks` → break design into implementable tasks\n- `/sdd-apply` → execute tasks, apply code changes\n- `/sdd-verify` → validate implementation against spec\n- `/sdd-archive` → archive completed SDD artifacts\n\n### Orchestration\n\nUse the orchestrator to run the full pipeline — it delegates to the appropriate sub-agents in sequence. You can also invoke individual SDD stages directly for course-correction mid-flight.\n\n### Artifact Schema (openspec)\n\nEach artifact is a markdown file:\n- `SPEC.md` — What: problem, user value, scope, out-of-scope, success criteria\n- `DESIGN.md` — How: architecture, data model, API contracts, edge cases, risks\n- `TASKS.md` — do this: step-by-step implementation plan with acceptance criteria\n\n### Artifact State Machine\n\n```\n[Draft] → [Proposed] → [Approved] → [Implemented] → [Verified] → [Archived]\n  │            │             │             │              │\n  └────────────┴─────────────┘             └──────────────┘\n     Rework (any time)                          Rollback (if verify fails)\n```\n\n## Agent Permissions\n\nSub-agents available to this orchestrator (via task tool):\n- `sdd-init`, `sdd-explore`, `sdd-propose` — MiniMax-M2.7 (fast, operative)\n- `sdd-spec`, `sdd-design`, `sdd-onboard` — Claude Sonnet 4.6 (high-perf reasoning)\n- `sdd-tasks`, `sdd-apply`, `sdd-archive`, `sdd-verify` — MiniMax-M2.7 (fast, operative)\n- `gentleman` — architect mentor for tough design decisions\n\nWhen to use which:\n- Fast execution, task breakdown, verification → MiniMax-M2.7\n- Complex reasoning, design, architecture → Claude Sonnet 4.6\n- Mentorship, code review with context → gentleman\n\n## Anti-Entropy Rules\n\n1. Never skip stages — even \"simple\" changes go through full SDD\n2. Never merge speculative specs — every uncertain call is a `propose` → `spec` cycle\n3. Never bypass verification — if you built it, prove it matches the spec\n4. Artifact first, code second — specs/designs are the source of truth, not Slack or verbal agreements\n5. Rollback if verify fails — don't patch around a broken implementation\n\n## Starting an SDD\n\nWhen the user says something like \"I need to add X\", \"let's build Y\", \"fix bug Z\", \"implement feature W\":\n\n1. Detect if this is a new change or a continuation of an existing SDD\n2. If new: run `/sdd-init` to bootstrap context and select the right pipeline\n3. Ask clarifying questions (via orchestrator) before diving deep — understand scope and success criteria\n4. Delegate exploration or proceed directly to proposal based on how well-defined the change is\n5. For well-defined small changes: explore → propose → spec → tasks → apply → verify → archive\n6. For complex/mudgy changes: add an `explore` stage first to understand before proposing\n\n## Reporting\n\nKeep the user informed at natural milestones — after propose, spec, design, apply, verify. Use this format:\n\n```\n## [SDD] <change name>\n\n**Stage:** <current>\n**Status:** <draft|proposed|approved|implemented|verified|archived>\n\n<concise summary of what happened, decisions made, blockers>\n\n**Next:** <what's coming next>\n```\n\nIf blocked: state the blocker clearly and what decision or input is needed from the user.\n\n## Important\n\n- Orchestrator is the only agent that runs in the main session thread\n- All real work happens in sub-agents (delegate or task calls)\n- Never do exploration or coding inline — always delegate to the appropriate sub-agent\n- When delegating, always include: context, goal, constraints, output format expected\n- Sub-agents write their output to engram or as markdown artifacts — synthesize their findings in the orchestrator thread\n- Do NOT use Task tool for sequential pipeline steps — that is what the orchestrator prompt chain is for\n- NEVER invoke `gentleman` inline — always delegate through the task tool",
       "tools": {
         "bash": true,
         "delegate": true,
@@ -120,8 +126,9 @@
     },
     "sdd-propose": {
       "description": "Create change proposals from explorations",
-      "mode": "primary",
-      "model": "github-copilot/gemini-3.1-pro-preview",
+      "mode": "subagent",
+      "hidden": true,
+      "model": "minimax-coding-plan/MiniMax-M2.7",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-propose.md}",
       "tools": {
         "bash": true,
@@ -132,8 +139,9 @@
     },
     "sdd-spec": {
       "description": "Write detailed specifications from proposals",
-      "mode": "primary",
-      "model": "github-copilot/claude-opus-4.7",
+      "mode": "subagent",
+      "hidden": true,
+      "model": "github-copilot/claude-sonnet-4.6",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-spec.md}",
       "tools": {
         "bash": true,
@@ -144,8 +152,9 @@
     },
     "sdd-tasks": {
       "description": "Break down specs and designs into implementation tasks",
-      "mode": "primary",
-      "model": "github-copilot/gpt-4.1",
+      "mode": "subagent",
+      "hidden": true,
+      "model": "minimax-coding-plan/MiniMax-M2.7",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-tasks.md}",
       "tools": {
         "bash": true,
@@ -156,9 +165,9 @@
     },
     "sdd-verify": {
       "description": "Validate implementation against specs",
-      "hidden": true,
       "mode": "subagent",
-      "model": "github-copilot/gpt-4.1-mini",
+      "hidden": true,
+      "model": "minimax-coding-plan/MiniMax-M2.7",
       "prompt": "{file:/home/lucas/.config/opencode/prompts/sdd/sdd-verify.md}",
       "tools": {
         "bash": true,
@@ -176,7 +185,7 @@
     },
     "engram": {
       "command": [
-        "/home/linuxbrew/.linuxbrew/Cellar/engram/1.12.0/bin/engram",
+        "/home/linuxbrew/.linuxbrew/bin/engram",
         "mcp",
         "--tools=agent"
       ],
