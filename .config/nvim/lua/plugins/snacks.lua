@@ -25,6 +25,16 @@ return {
         explorer = {
           hidden = true,
           ignored = true,
+          layout = {
+            preset = "left",
+            layout = { width = 0.3 },
+          },
+        },
+        opencode = {
+          layout = {
+            preset = "vertical",
+            layout = { width = 0.5 },
+          },
         },
       },
     },
