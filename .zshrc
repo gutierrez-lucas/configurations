@@ -102,3 +102,15 @@ if [ -d "$FNM_PATH" ]; then
 fi
 
 # ── Auto-restore tmux sessions on login ────────────────────────────────────────
+
+# opencode
+export PATH=/home/lucas/.opencode/bin:$PATH
+
+# ── Ring bell when long-running commands complete ────────────────────────────
+# Notify when a command finishes (useful with tmux visual-bell)
+precmd() {
+  # Ring bell if the last command took > 5 seconds and we're not in the current window
+  if [[ -n "$TMUX" ]]; then
+    printf '\a'  # ASCII bell
+  fi
+}

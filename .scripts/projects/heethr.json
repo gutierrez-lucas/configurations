@@ -13,14 +13,13 @@
   "tmux": {
     "windows": [
       {
-        "name": "start",
+        "name": "Monitor",
         "command": "bash /home/lucas/Work/Heethr/scripts/start-local-system.sh",
         "source_tmux_conf": true
       },
-      { "name": "IDE",      "command": "nvim ." },
       { "name": "OpenCode" },
-      { "name": "Monitor"  }
+      { "name": "Explore"  }
     ],
-    "focus": "start"
+    "focus": "Explore"
   }
 }
