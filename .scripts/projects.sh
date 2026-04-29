@@ -214,7 +214,7 @@ lc_key="${action_tag#lc:}"
 if [[ "$is_new_session" == "true" && "$lc_key" == "start" ]]; then
   RESULT=$(mktemp)
   trap "rm -f '$RESULT'" EXIT
-  tmux popup -w 40 -h 6 -E "echo -n '' | fzf --prompt='Session name: ' --print-query --height=1 --layout=reverse --border=none > '$RESULT'"
+  tmux popup -w 40 -h 6 -E "echo -n '' | fzf --prompt='Session name: ' --print-query --height=1 --layout=reverse --border=none --no-mouse > '$RESULT'"
   SESSION_NAME=$(cat "$RESULT" | head -1 | tr -d '\n')
   SESSION_NAME="${SESSION_NAME:-Playground}"
   SANITIZED=$(echo "$SESSION_NAME" | tr -cd '[:alnum:]_-')

@@ -11,7 +11,7 @@ trap "rm -f '$RESULT'" EXIT
 
 # ── Prompt for session name ──────────────────────────────────────────────────
 # Use fzf in reverse layout to collect input; default to "Playground".
-tmux popup -w 40 -h 6 -E "echo -n '' | fzf --prompt='Session name: ' --print-query --height=1 --layout=reverse --border=none > '$RESULT'"
+tmux popup -w 40 -h 6 -E "echo -n '' | fzf --prompt='Session name: ' --print-query --height=1 --layout=reverse --border=none --no-mouse > '$RESULT'"
 QUERY=$(cat "$RESULT" | head -1 | tr -d '\n')
 SESSION_NAME="${QUERY:-Playground}"
 
