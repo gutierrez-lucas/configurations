@@ -104,10 +104,11 @@ install_apt_packages() {
     fi
   done
 
-  # zsh-syntax-highlighting (apt handles this separately as it has no binary)
-  if [ ! -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] \
-     && ! dpkg -s zsh-syntax-highlighting &>/dev/null 2>&1; then
-    to_install+=("zsh-syntax-highlighting")
+  # fd-find package installs "fdfind" binary (not "fd") — symlink it if missing
+  if command -v fdfind &>/dev/null && ! command -v fd &>/dev/null; then
+    mkdir -p "$HOME/.local/bin"
+    [ ! -e "$HOME/.local/bin/fd" ] && ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+    info "Linked fdfind → fd"
   fi
 
   if [ ${#to_install[@]} -eq 0 ]; then
@@ -337,6 +338,37 @@ install_jq() {
   info "Installing jq..."
   sudo apt-get install -y jq
   success "Phase 2l complete."
+}
+
+# ── 2m. LSP servers (pyright, gopls, tsserver — used by nvim LSP config) ─────
+install_lsp_servers() {
+  info "=== Phase 2m: LSP servers ==="
+
+  # pyright (Python)
+  if ! command -v pyright &>/dev/null; then
+    info "Installing pyright..."
+    npm install -g pyright
+  else
+    info "pyright already installed — skipping."
+  fi
+
+  # gopls (Go — requires Go ≥ 1.21 already installed)
+  if ! command -v gopls &>/dev/null; then
+    info "Installing gopls..."
+    go install golang.org/x/tools/gopls@latest
+  else
+    info "gopls already installed — skipping."
+  fi
+
+  # tsserver (TypeScript language server — ships with typescript package)
+  if ! command -v tsserver &>/dev/null && ! command -v typescript &>/dev/null; then
+    info "Installing typescript + tsserver..."
+    npm install -g typescript
+  else
+    info "typescript/tsserver already installed — skipping."
+  fi
+
+  success "Phase 2m complete."
 }
 
 # ── PHASE 3: Nerd Fonts (JetBrainsMono — used by p10k + alacritty) ─────────────
@@ -615,6 +647,9 @@ main() {
   echo ""
 
   install_jq
+  echo ""
+
+  install_lsp_servers
   echo ""
 
   install_nerd_fonts
