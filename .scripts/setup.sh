@@ -7,20 +7,30 @@
 #   Phase 0 (bootstrap)  → must exist on a bare Ubuntu before anything else
 #   Phase 1+            → all other tools, checked + installed in strict order
 #   Phase N (dotfiles)  → applied LAST after every tool is verified
+#   Phase N+1           → variable substitution (username / hostname)
+#
+# IMPORTANT: failures in any installation step are logged but do NOT stop the
+# script. The idea is: install every dependency, continue if any fails.
 
-set -euo pipefail
+# ── no exit on error ──────────────────────────────────────────────────────────
+set -uo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-USER="${USER:-$(id -un)}"
-HOME="${HOME:-$(getent passwd "$(id -un)" | cut -d: -f6)}"
-export USER HOME
+# ── current machine identity (used for variable substitution) ──────────────────
+CURRENT_USER="$(id -un)"
+CURRENT_HOME="$(getent passwd "$(id -un)" | cut -d: -f6)"
+CURRENT_HOSTNAME="$(hostname)"
+# Hardcoded identity from THIS repo (used as substitution source)
+REPO_USER="lucas"
+REPO_HOSTNAME=""  # not hardcoded anywhere, kept for completeness
+export CURRENT_USER CURRENT_HOME CURRENT_HOSTNAME REPO_DIR REPO_USER REPO_HOSTNAME
 
-# ── output helpers ───────────────────────────────────────────────────────────────
+# ── output helpers ─────────────────────────────────────────────────────────────
 info()    { printf '\033[1;34m[INFO]\033[0m  %s\n' "$*"; }
 success() { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
 warn()    { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*"; }
-die()     { printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
+fail()    { printf '\033[1;31m[FAIL]\033[0m %s\n' "$*" >&2; }
 
 require_ubuntu() {
   if ! grep -qi ubuntu /etc/os-release 2>/dev/null; then
@@ -65,7 +75,7 @@ bootstrap_base_tools() {
   else
     info "Installing: ${missing[*]}"
     sudo apt-get update -qq
-    sudo apt-get install -y "${missing[@]}"
+    sudo apt-get install -y "${missing[@]}" || fail "Phase 0: apt install '${missing[*]}' failed — continuing..."
   fi
   success "Phase 0 complete."
 }
@@ -106,8 +116,8 @@ install_apt_packages() {
 
   # fd-find package installs "fdfind" binary (not "fd") — symlink it if missing
   if command -v fdfind &>/dev/null && ! command -v fd &>/dev/null; then
-    mkdir -p "$HOME/.local/bin"
-    [ ! -e "$HOME/.local/bin/fd" ] && ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+    mkdir -p "$CURRENT_HOME/.local/bin"
+    [ ! -e "$CURRENT_HOME/.local/bin/fd" ] && ln -sf "$(command -v fdfind)" "$CURRENT_HOME/.local/bin/fd"
     info "Linked fdfind → fd"
   fi
 
@@ -116,7 +126,7 @@ install_apt_packages() {
   else
     info "Installing: ${to_install[*]}"
     sudo apt-get update -qq
-    sudo apt-get install -y "${to_install[@]}"
+    sudo apt-get install -y "${to_install[@]}" || fail "Phase 1: apt install '${to_install[*]}' failed — continuing..."
   fi
   success "Phase 1 complete."
 }
@@ -124,8 +134,9 @@ install_apt_packages() {
 # ── PHASE 2: Version-aware tool installations ──────────────────────────────────
 # Each function: checks tool + version. Installs only if missing or version too low.
 # All downloads use tools guaranteed by Phase 0 (git, curl, wget, unzip).
+# Failures are logged but do NOT stop the script.
 
-# ── 2a. zsh ≥ 5.1 (Oh My Zsh and powerlevel10k instant prompt require 5.1+) ──────
+# ── 2a. zsh ≥ 5.1 (Oh My Zsh and powerlevel10k instant prompt require 5.1+) ──
 install_zsh() {
   info "=== Phase 2a: zsh ==="
   local REQUIRED="5.1"
@@ -139,7 +150,7 @@ install_zsh() {
   else
     info "zsh not found — installing..."
   fi
-  sudo apt-get install -y zsh
+  sudo apt-get install -y zsh || { fail "Phase 2a: zsh installation failed — continuing..."; return; }
   success "Phase 2a complete."
 }
 
@@ -157,7 +168,7 @@ install_tmux() {
   else
     info "tmux not found — installing..."
   fi
-  sudo apt-get install -y tmux
+  sudo apt-get install -y tmux || { fail "Phase 2b: tmux installation failed — continuing..."; return; }
   success "Phase 2b complete."
 }
 
@@ -176,17 +187,26 @@ install_neovim() {
     info "Neovim not found — installing..."
   fi
   local TMP; TMP="$(mktemp -d)"
-  wget -qO "$TMP/nvim.appimage" \
-    "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage"
+  local NVM_URL="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage"
+  if ! wget -qO "$TMP/nvim.appimage" "$NVM_URL"; then
+    fail "Phase 2c: wget neovim failed — continuing..."
+    rm -rf "$TMP"
+    return
+  fi
   chmod +x "$TMP/nvim.appimage"
-  (cd "$TMP" && ./nvim.appimage --appimage-extract &>/dev/null)
+  if ! (cd "$TMP" && ./nvim.appimage --appimage-extract &>/dev/null); then
+    fail "Phase 2c: neovim extract failed — continuing..."
+    rm -rf "$TMP"
+    return
+  fi
+  sudo rm -rf /opt/nvim
   sudo mv "$TMP/squashfs-root" /opt/nvim
   sudo ln -sf /opt/nvim/usr/bin/nvim /usr/local/bin/nvim
   rm -rf "$TMP"
   success "Phase 2c complete."
 }
 
-# ── 2d. Node.js ≥ 18 (fnm and many LSPs require 18+) ───────────────────────────
+# ── 2d. Node.js ≥ 18 (fnm and many LSPs require 18+) ────────────────────────────
 install_nodejs() {
   info "=== Phase 2d: Node.js ==="
   local REQUIRED="18"
@@ -202,12 +222,15 @@ install_nodejs() {
   fi
   # Use fnm to install a specific Node version (fnm itself installed in Phase 2e)
   if command -v fnm &>/dev/null; then
-    fnm install 18
-    fnm default 18
+    fnm install 18 || { fail "Phase 2d: fnm install 18 failed — continuing..."; return; }
+    fnm default 18 || { fail "Phase 2d: fnm default 18 failed — continuing..."; return; }
   else
     # Fallback: install via apt
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash -
-    sudo apt-get install -y nodejs
+    if ! curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash -; then
+      fail "Phase 2d: nodejs apt setup failed — continuing..."
+      return
+    fi
+    sudo apt-get install -y nodejs || { fail "Phase 2d: apt install nodejs failed — continuing..."; return; }
   fi
   success "Phase 2d complete."
 }
@@ -220,7 +243,12 @@ install_fnm() {
     return
   fi
   info "Installing fnm..."
-  curl -fsSL https://fnm.vercel.app/install | bash
+  if ! curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$CURRENT_HOME/.local/bin" --skip-shell; then
+    fail "Phase 2e: fnm installation failed — continuing..."
+    return
+  fi
+  # Ensure fnm is on PATH for subsequent phases
+  export PATH="$CURRENT_HOME/.local/bin:$PATH"
   success "Phase 2e complete."
 }
 
@@ -240,8 +268,11 @@ install_golang() {
   fi
   local TMP; TMP="$(mktemp -d)"
   local VERSION="1.23.0"
-  wget -qO "$TMP/go.tar.gz" \
-    "https://go.dev/dl/go${VERSION}.linux-amd64.tar.gz"
+  if ! wget -qO "$TMP/go.tar.gz" "https://go.dev/dl/go${VERSION}.linux-amd64.tar.gz"; then
+    fail "Phase 2f: wget go failed — continuing..."
+    rm -rf "$TMP"
+    return
+  fi
   sudo rm -rf /usr/local/go
   sudo tar -C /usr/local -xzf "$TMP/go.tar.gz"
   rm -rf "$TMP"
@@ -257,9 +288,12 @@ install_rust() {
     return
   fi
   info "Installing Rust..."
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+  if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path; then
+    fail "Phase 2g: rustup installation failed — continuing..."
+    return
+  fi
   # shellcheck disable=SC1091
-  source "$HOME/.cargo/env"
+  [ -f "$CURRENT_HOME/.cargo/env" ] && source "$CURRENT_HOME/.cargo/env"
   success "Phase 2g complete."
 }
 
@@ -271,24 +305,38 @@ install_homebrew() {
     return
   fi
   info "Installing Homebrew..."
-  NONINTERACTIVE=1 bash -c \
-    "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # Detect brew prefix (linuxbrew standard location)
+  local BREW_PREFIX="$CURRENT_HOME/.linuxbrew"
+  if [ -d "$BREW_PREFIX/.linuxbrew" ]; then
+    BREW_PREFIX="$BREW_PREFIX/.linuxbrew"
+  elif [ -d "/home/linuxbrew/.linuxbrew" ]; then
+    BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+  fi
+  if ! NONINTERACTIVE=1 bash -c \
+    "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+    -- --prefix="$BREW_PREFIX" --force; then
+    fail "Phase 2h: Homebrew installation failed — continuing..."
+    return
+  fi
   # shellcheck disable=SC1091
-  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  eval "$(brew shellenv)" 2>/dev/null || true
   success "Phase 2h complete."
 }
 
-# ── 2i. brew packages: eza, zoxide ────────────────────────────────────────────
+# ── 2i. brew packages: eza, zoxide ──────────────────────────────────────────
 install_brew_packages() {
   info "=== Phase 2i: brew packages (eza, zoxide) ==="
   # shellcheck disable=SC1091
-  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" 2>/dev/null || true
+  eval "$(brew shellenv)" 2>/dev/null || true
   if command -v eza &>/dev/null && command -v zoxide &>/dev/null; then
     info "eza and zoxide present — skipping."
     return
   fi
   info "Installing eza and zoxide..."
-  brew install eza zoxide
+  if ! brew install eza zoxide; then
+    fail "Phase 2i: brew install eza zoxide failed — continuing..."
+    return
+  fi
   success "Phase 2i complete."
 }
 
@@ -301,15 +349,22 @@ install_gh() {
   fi
   info "Installing gh..."
   local VERSION
-  VERSION="$(curl -fsSL https://github.com/cli/cli/releases/latest \
-    | grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' | head -1 | tr -d 'v')"
+  if ! VERSION="$(curl -fsSL https://github.com/cli/cli/releases/latest \
+    | grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' | head -1 | tr -d 'v')"; then
+    fail "Phase 2j: failed to fetch gh version — continuing..."
+    return
+  fi
   local TMP; TMP="$(mktemp -d)"
-  curl -fsSL "https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_amd64.tar.gz" \
-    -o "$TMP/gh.tar.gz"
+  local GH_URL="https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_amd64.tar.gz"
+  if ! curl -fsSL "$GH_URL" -o "$TMP/gh.tar.gz"; then
+    fail "Phase 2j: wget gh failed — continuing..."
+    rm -rf "$TMP"
+    return
+  fi
   tar -xzf "$TMP/gh.tar.gz" -C "$TMP/"
-  mkdir -p "$HOME/.local/bin"
-  cp "$TMP/gh_${VERSION}_linux_amd64/bin/gh" "$HOME/.local/bin/gh"
-  chmod +x "$HOME/.local/bin/gh"
+  mkdir -p "$CURRENT_HOME/.local/bin"
+  cp "$TMP/gh_${VERSION}_linux_amd64/bin/gh" "$CURRENT_HOME/.local/bin/gh"
+  chmod +x "$CURRENT_HOME/.local/bin/gh"
   rm -rf "$TMP"
   success "Phase 2j complete."
 }
@@ -322,9 +377,12 @@ install_opencode() {
     return
   fi
   info "Installing opencode..."
-  mkdir -p "$HOME/.opencode/bin"
-  curl -fsSL https://opencode.ai/install.sh | sh -s -- -b "$HOME/.opencode/bin"
-  chmod +x "$HOME/.opencode/bin/opencode" 2>/dev/null || true
+  mkdir -p "$CURRENT_HOME/.opencode/bin"
+  if ! curl -fsSL https://opencode.ai/install.sh | sh -s -- -b "$CURRENT_HOME/.opencode/bin"; then
+    fail "Phase 2k: opencode installation failed — continuing..."
+    return
+  fi
+  chmod +x "$CURRENT_HOME/.opencode/bin/opencode" 2>/dev/null || true
   success "Phase 2k complete."
 }
 
@@ -336,7 +394,7 @@ install_jq() {
     return
   fi
   info "Installing jq..."
-  sudo apt-get install -y jq
+  sudo apt-get install -y jq || { fail "Phase 2l: jq installation failed — continuing..."; return; }
   success "Phase 2l complete."
 }
 
@@ -347,7 +405,9 @@ install_lsp_servers() {
   # pyright (Python)
   if ! command -v pyright &>/dev/null; then
     info "Installing pyright..."
-    npm install -g pyright
+    if ! npm install -g pyright 2>/dev/null; then
+      fail "Phase 2m: pyright installation failed — continuing..."
+    fi
   else
     info "pyright already installed — skipping."
   fi
@@ -355,7 +415,10 @@ install_lsp_servers() {
   # gopls (Go — requires Go ≥ 1.21 already installed)
   if ! command -v gopls &>/dev/null; then
     info "Installing gopls..."
-    go install golang.org/x/tools/gopls@latest
+    export PATH="/usr/local/go/bin:$PATH"
+    if ! go install golang.org/x/tools/gopls@latest 2>/dev/null; then
+      fail "Phase 2m: gopls installation failed — continuing..."
+    fi
   else
     info "gopls already installed — skipping."
   fi
@@ -363,7 +426,9 @@ install_lsp_servers() {
   # tsserver (TypeScript language server — ships with typescript package)
   if ! command -v tsserver &>/dev/null && ! command -v typescript &>/dev/null; then
     info "Installing typescript + tsserver..."
-    npm install -g typescript
+    if ! npm install -g typescript 2>/dev/null; then
+      fail "Phase 2m: typescript installation failed — continuing..."
+    fi
   else
     info "typescript/tsserver already installed — skipping."
   fi
@@ -380,10 +445,14 @@ install_nerd_fonts() {
   fi
   info "Installing JetBrainsMono Nerd Font..."
   local TMP; TMP="$(mktemp -d)"
-  wget -qO "$TMP/JetBrainsMono.zip" \
-    "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
-  mkdir -p "$HOME/.local/share/fonts/JetBrainsMono"
-  unzip -qo "$TMP/JetBrainsMono.zip" -d "$HOME/.local/share/fonts/JetBrainsMono"
+  local FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+  if ! wget -qO "$TMP/JetBrainsMono.zip" "$FONT_URL"; then
+    fail "Phase 3: wget font failed — continuing..."
+    rm -rf "$TMP"
+    return
+  fi
+  mkdir -p "$CURRENT_HOME/.local/share/fonts/JetBrainsMono"
+  unzip -qo "$TMP/JetBrainsMono.zip" -d "$CURRENT_HOME/.local/share/fonts/JetBrainsMono"
   fc-cache -f
   rm -rf "$TMP"
   success "Phase 3 complete."
@@ -392,26 +461,32 @@ install_nerd_fonts() {
 # ── PHASE 4: Oh My Zsh ────────────────────────────────────────────────────────
 install_ohmyzsh() {
   info "=== Phase 4: Oh My Zsh ==="
-  if [ -d "$HOME/.oh-my-zsh" ]; then
+  if [ -d "$CURRENT_HOME/.oh-my-zsh" ]; then
     info "Oh My Zsh already installed — skipping."
     return
   fi
   info "Installing Oh My Zsh..."
-  RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+  if ! RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"; then
+    fail "Phase 4: Oh My Zsh installation failed — continuing..."
+    return
+  fi
   success "Phase 4 complete."
 }
 
 # ── PHASE 5: Powerlevel10k ───────────────────────────────────────────────────
 install_p10k() {
   info "=== Phase 5: Powerlevel10k ==="
-  local P10K_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+  local P10K_DIR="${ZSH_CUSTOM:-$CURRENT_HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
   if [ -d "$P10K_DIR" ]; then
     info "Powerlevel10k already installed — skipping."
     return
   fi
   info "Installing Powerlevel10k..."
-  git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$P10K_DIR"
+  if ! git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$P10K_DIR"; then
+    fail "Phase 5: powerlevel10k clone failed — continuing..."
+    return
+  fi
   success "Phase 5 complete."
 }
 
@@ -419,18 +494,22 @@ install_p10k() {
 install_zsh_plugins() {
   info "=== Phase 6: zsh plugins ==="
 
-  local AUTO_DIR="$HOME/.zsh/zsh-autosuggestions"
+  local AUTO_DIR="$CURRENT_HOME/.zsh/zsh-autosuggestions"
   if [ ! -d "$AUTO_DIR" ]; then
     info "Cloning zsh-autosuggestions..."
-    git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git "$AUTO_DIR"
+    if ! git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git "$AUTO_DIR"; then
+      fail "Phase 6: zsh-autosuggestions clone failed — continuing..."
+    fi
   else
     info "zsh-autosuggestions already present."
   fi
 
-  local FZF_ZSH_DIR="$HOME/.zsh/fzf-zsh-plugin"
+  local FZF_ZSH_DIR="$CURRENT_HOME/.zsh/fzf-zsh-plugin"
   if [ ! -d "$FZF_ZSH_DIR" ]; then
     info "Cloning fzf-zsh-plugin..."
-    git clone --depth=1 https://github.com/unixorn/fzf-zsh-plugin.git "$FZF_ZSH_DIR"
+    if ! git clone --depth=1 https://github.com/unixorn/fzf-zsh-plugin.git "$FZF_ZSH_DIR"; then
+      fail "Phase 6: fzf-zsh-plugin clone failed — continuing..."
+    fi
   else
     info "fzf-zsh-plugin already present."
   fi
@@ -452,26 +531,29 @@ install_lazyvim() {
 # ── PHASE 8: TPM — tmux plugin manager ─────────────────────────────────────────
 install_tpm() {
   info "=== Phase 8: TPM ==="
-  local TPM_DIR="$HOME/.tmux/plugins/tpm"
+  local TPM_DIR="$CURRENT_HOME/.tmux/plugins/tpm"
   if [ -d "$TPM_DIR" ]; then
     info "TPM already installed — skipping."
     return
   fi
   info "Installing TPM..."
-  git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR"
+  if ! git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR"; then
+    fail "Phase 8: TPM clone failed — continuing..."
+    return
+  fi
   success "Phase 8 complete."
 }
 
 # ── PHASE 9: tmux-start.sh ─────────────────────────────────────────────────────
 install_tmux_start_script() {
   info "=== Phase 9: tmux-start.sh ==="
-  local SCRIPT="$HOME/.tmux/tmux-start.sh"
+  local SCRIPT="$CURRENT_HOME/.tmux/tmux-start.sh"
   if [ -f "$SCRIPT" ]; then
     info "tmux-start.sh already exists — skipping."
     return
   fi
   info "Creating ~/.tmux/tmux-start.sh..."
-  mkdir -p "$HOME/.tmux"
+  mkdir -p "$CURRENT_HOME/.tmux"
   cat > "$SCRIPT" <<'EOF'
 #!/bin/zsh
 tmux new-session \; source-file ~/.tmux.conf
@@ -489,13 +571,17 @@ install_shell_color_scripts() {
   fi
   info "Installing shell-color-scripts..."
   local TMP; TMP="$(mktemp -d)"
-  git clone --depth=1 https://gitlab.com/dwt1/shell-color-scripts.git "$TMP/shell-color-scripts"
-  mkdir -p "$HOME/.local/opt/shell-color-scripts" "$HOME/.local/bin"
-  cp -rf "$TMP/shell-color-scripts/colorscripts/." "$HOME/.local/opt/shell-color-scripts/"
-  cp "$TMP/shell-color-scripts/colorscript.sh" "$HOME/.local/bin/colorscript"
-  chmod +x "$HOME/.local/bin/colorscript"
-  sed -i 's|DIR_COLORSCRIPTS="/opt/shell-color-scripts/colorscripts"|DIR_COLORSCRIPTS="$HOME/.local/opt/shell-color-scripts"|' \
-    "$HOME/.local/bin/colorscript"
+  if ! git clone --depth=1 https://gitlab.com/dwt1/shell-color-scripts.git "$TMP/shell-color-scripts"; then
+    fail "Phase 10: shell-color-scripts clone failed — continuing..."
+    rm -rf "$TMP"
+    return
+  fi
+  mkdir -p "$CURRENT_HOME/.local/opt/shell-color-scripts" "$CURRENT_HOME/.local/bin"
+  cp -rf "$TMP/shell-color-scripts/colorscripts/." "$CURRENT_HOME/.local/opt/shell-color-scripts/"
+  cp "$TMP/shell-color-scripts/colorscript.sh" "$CURRENT_HOME/.local/bin/colorscript"
+  chmod +x "$CURRENT_HOME/.local/bin/colorscript"
+  sed -i 's|DIR_COLORSCRIPTS="/opt/shell-color-scripts/colorscripts"|DIR_COLORSCRIPTS="$CURRENT_HOME/.local/opt/shell-color-scripts"|' \
+    "$CURRENT_HOME/.local/bin/colorscript"
   rm -rf "$TMP"
   success "Phase 10 complete."
 }
@@ -513,7 +599,10 @@ install_gh_notify() {
     return
   fi
   info "Installing gh-notify..."
-  gh extension install meiji163/gh-notify
+  if ! gh extension install meiji163/gh-notify; then
+    fail "Phase 11: gh-notify installation failed — continuing..."
+    return
+  fi
   success "Phase 11 complete."
 }
 
@@ -526,7 +615,10 @@ set_default_shell() {
     return
   fi
   info "Changing default shell to zsh..."
-  sudo chsh -s "$ZSH_PATH" "$(whoami)"
+  if ! sudo chsh -s "$ZSH_PATH" "$(whoami)"; then
+    fail "Phase 12: chsh failed — continuing..."
+    return
+  fi
   success "Phase 12 complete (takes effect on next login)."
 }
 
@@ -534,7 +626,7 @@ set_default_shell() {
 apply_dotfiles() {
   info "=== Phase 13: Applying dotfiles ==="
 
-  mkdir -p "$HOME/.config"
+  mkdir -p "$CURRENT_HOME/.config"
 
   link() {
     local src="$1" dst="$2"
@@ -546,18 +638,19 @@ apply_dotfiles() {
       warn "Backing up existing $dst → ${dst}.bak"
       mv "$dst" "${dst}.bak"
     fi
+    mkdir -p "$(dirname "$dst")"
     ln -sf "$src" "$dst"
     success "Linked $dst → $src"
   }
 
-  link "$REPO_DIR/.zshrc"     "$HOME/.zshrc"
-  link "$REPO_DIR/.p10k.zsh"  "$HOME/.p10k.zsh"
-  link "$REPO_DIR/.fzf.zsh"   "$HOME/.fzf.zsh"
-  link "$REPO_DIR/.tmux.conf" "$HOME/.tmux.conf"
-  link "$REPO_DIR/.scripts"          "$HOME/.scripts"
-  link "$REPO_DIR/.config/nvim"      "$HOME/.config/nvim"
-  link "$REPO_DIR/.config/alacritty" "$HOME/.config/alacritty"
-  link "$REPO_DIR/.config/opencode"  "$HOME/.config/opencode"
+  link "$REPO_DIR/.zshrc"     "$CURRENT_HOME/.zshrc"
+  link "$REPO_DIR/.p10k.zsh"  "$CURRENT_HOME/.p10k.zsh"
+  link "$REPO_DIR/.fzf.zsh"   "$CURRENT_HOME/.fzf.zsh"
+  link "$REPO_DIR/.tmux.conf" "$CURRENT_HOME/.tmux.conf"
+  link "$REPO_DIR/.scripts"          "$CURRENT_HOME/.scripts"
+  link "$REPO_DIR/.config/nvim"      "$CURRENT_HOME/.config/nvim"
+  link "$REPO_DIR/.config/alacritty"  "$CURRENT_HOME/.config/alacritty"
+  link "$REPO_DIR/.config/opencode"   "$CURRENT_HOME/.config/opencode"
 
   success "Phase 13 complete."
 }
@@ -565,11 +658,11 @@ apply_dotfiles() {
 # ── PHASE 14: Install tmux plugins via TPM ─────────────────────────────────────
 install_tmux_plugins() {
   info "=== Phase 14: tmux plugins (TPM) ==="
-  if [ -f "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]; then
-    TMUX='' "$HOME/.tmux/plugins/tpm/bin/install_plugins" || true
-    success "tmux plugins installed."
+  if [ -f "$CURRENT_HOME/.tmux/plugins/tpm/bin/install_plugins" ]; then
+    TMUX='' "$CURRENT_HOME/.tmux/plugins/tpm/bin/install_plugins" || \
+      warn "Phase 14: TPM install_plugins failed — run prefix+I inside tmux manually."
   else
-    warn "TPM not ready yet — skipping. Run prefix+I inside tmux after first boot."
+    warn "Phase 14: TPM not ready yet — skipping. Run prefix+I in tmux after first boot."
   fi
   success "Phase 14 complete."
 }
@@ -577,9 +670,9 @@ install_tmux_plugins() {
 # ── PHASE 15: tmux2k custom plugins ────────────────────────────────────────────
 link_tmux2k_plugins() {
   info "=== Phase 15: tmux2k custom plugins ==="
-  local TMUX2K_PLUGINS_DIR="$HOME/.tmux/plugins/tmux2k/plugins"
+  local TMUX2K_PLUGINS_DIR="$CURRENT_HOME/.tmux/plugins/tmux2k/plugins"
   if [ ! -d "$TMUX2K_PLUGINS_DIR" ]; then
-    warn "tmux2k plugins dir not found — skipping (run prefix+I in tmux first)."
+    warn "Phase 15: tmux2k plugins dir not found — skipping (run prefix+I in tmux first)."
     return
   fi
   for plugin in calc copilot; do
@@ -600,11 +693,56 @@ link_tmux2k_plugins() {
   success "Phase 15 complete."
 }
 
+# ── PHASE 16: Variable substitution ─────────────────────────────────────────────
+# Replace hardcoded repo identity (username, hostname) in config files
+# that live INSIDE the repo (so this repo stays portable).
+# Target files are the ones tracked by git in this repo.
+substitute_variables() {
+  info "=== Phase 16: Variable substitution ==="
+
+  if [ "$CURRENT_USER" = "$REPO_USER" ]; then
+    info "Username matches repo ('$REPO_USER') — skipping username substitution."
+  else
+    info "Substituting username: '$REPO_USER' → '$CURRENT_USER'"
+    local -a user_files=(
+      "$REPO_DIR/.scripts/projects/heethr.json"
+      "$REPO_DIR/.scripts/projects/flaresense.json"
+      "$REPO_DIR/.scripts/projects/notes.json"
+      "$REPO_DIR/.scripts/projects/new-session.json"
+      "$REPO_DIR/.scripts/projects/project.schema.json"
+      "$REPO_DIR/.config/opencode/AGENTS.md"
+      "$REPO_DIR/.config/opencode/instructions/flaresense.md"
+      "$REPO_DIR/AGENTS.md"
+      "$REPO_DIR/.config/opencode/instructions/configurations.md"
+    )
+    for f in "${user_files[@]}"; do
+      if [ -f "$f" ]; then
+        if sed -i "s|/home/$REPO_USER|$CURRENT_HOME|g" "$f" 2>/dev/null; then
+          success "Substituted in: $f"
+        else
+          warn "Could not substitute in: $f"
+        fi
+        if sed -i "s|$REPO_USER|$CURRENT_USER|g" "$f" 2>/dev/null; then
+          success "Substituted @mention in: $f"
+        fi
+      fi
+    done
+    # Also substitute in .zshrc if it has hardcoded username refs
+    if [ -f "$REPO_DIR/.zshrc" ]; then
+      sed -i "s|/home/$REPO_USER|$CURRENT_HOME|g" "$REPO_DIR/.zshrc" 2>/dev/null
+      sed -i "s|$REPO_USER|$CURRENT_USER|g" "$REPO_DIR/.zshrc" 2>/dev/null
+    fi
+  fi
+
+  success "Phase 16 complete."
+}
+
 # ── main ───────────────────────────────────────────────────────────────────────────
 main() {
   require_ubuntu
 
   info "=== Starting bootstrap from $REPO_DIR ==="
+  info "Machine: user='$CURRENT_USER' hostname='$CURRENT_HOSTNAME' home='$CURRENT_HOME'"
   echo ""
 
   bootstrap_base_tools
@@ -689,6 +827,9 @@ main() {
   echo ""
 
   link_tmux2k_plugins
+  echo ""
+
+  substitute_variables
   echo ""
 
   success "=== Bootstrap complete! ==="
