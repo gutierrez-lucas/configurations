@@ -1,0 +1,25 @@
+{
+  "$schema": "./project.schema.json",
+  "icon": "󰄳",
+  "name": "Heethr",
+  "description": "Snow melting platform — backend, dashboard & shop",
+  "dir": "/home/lucas/Work/Heethr",
+  "session": "Heethr",
+  "lifecycle": {
+    "start": "zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json",
+    "restart": "zsh ~/.scripts/close_heethr.sh && sleep 1 && zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json",
+    "stop": "zsh ~/.scripts/close_heethr.sh"
+  },
+  "tmux": {
+    "windows": [
+      {
+        "name": "Monitor",
+        "command": "bash /home/lucas/Work/Heethr/scripts/start-local-system.sh",
+        "source_tmux_conf": true
+      },
+      { "name": "OpenCode" },
+      { "name": "Explore"  }
+    ],
+    "focus": "Explore"
+  }
+}

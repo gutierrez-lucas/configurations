@@ -8,8 +8,23 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+RED='\033[0;31m'
+
 log()  { echo -e "${GREEN}[heethr]${NC} $1"; }
 warn() { echo -e "${YELLOW}[heethr]${NC} $1"; }
+err()  { echo -e "${RED}[heethr]${NC} $1"; }
+
+# ── Safety check: prevent running from inside the Heethr session ──────────────
+CURRENT_SESSION=$(tmux display-message -p "#S" 2>/dev/null || echo "")
+if [[ "$CURRENT_SESSION" == "$SESSION" ]]; then
+  err "ERROR: You're currently inside the '$SESSION' tmux session."
+  err "Running this script from inside will log you out!"
+  err ""
+  err "Solution: Switch to a different tmux window/session first, or:"
+  err "  1. Detach: prefix + d"
+  err "  2. Then run: launch_heethr"
+  exit 1
+fi
 
 # ── Attach shortcut ───────────────────────────────────────────────────────────
 if [[ "$1" == "attach" ]]; then

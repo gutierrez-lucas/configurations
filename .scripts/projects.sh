@@ -228,6 +228,19 @@ fi
 
 printf "\n${GREEN}  Running ${name} ${lc_key}...${NC}\n\n"
 
+# ── Guard: if the action would kill the session we're currently in, switch
+#    the outer tmux client away first so we don't get ejected.
+if [[ "$lc_key" == "start" || "$lc_key" == "stop" || "$lc_key" == "restart" ]] \
+   && [[ -n "$session" ]]; then
+  _cur=$(tmux display-message -p "#S" 2>/dev/null || echo "")
+  if [[ "$_cur" == "$session" ]]; then
+    _other=$(tmux list-sessions -F '#S' 2>/dev/null | grep -v "^${session}$" | head -1)
+    if [[ -n "$_other" ]]; then
+      tmux switch-client -t "$_other"
+    fi
+  fi
+fi
+
 # Expand ~ and run the command with zsh to preserve all syntax
 LAUNCHED_FROM_PROJECTS=1 zsh -c "$(echo "$action_script" | sed "s|~|$HOME|g")"
 
