@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # setup.sh — New Ubuntu device bootstrap
-# Installs all dependencies and applies dotfiles from this repo.
-# Usage: bash setup.sh [--repo-dir <path>]
+# Installs ALL dependencies (with version checks) and applies dotfiles from this repo.
+# Fully non-interactive. Idempotent — safe to run multiple times.
 #
-# Idempotent: safe to run multiple times.
+# Dependency chain:
+#   Phase 0 (bootstrap)  → must exist on a bare Ubuntu before anything else
+#   Phase 1+            → all other tools, checked + installed in strict order
+#   Phase N (dotfiles)  → applied LAST after every tool is verified
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Ensure USER and HOME are always defined (may be unset in Docker/CI)
 USER="${USER:-$(id -un)}"
 HOME="${HOME:-$(getent passwd "$(id -un)" | cut -d: -f6)}"
 export USER HOME
 
-# ── helpers ────────────────────────────────────────────────────────────────────
+# ── output helpers ───────────────────────────────────────────────────────────────
 info()    { printf '\033[1;34m[INFO]\033[0m  %s\n' "$*"; }
 success() { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
 warn()    { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*"; }
@@ -26,84 +28,245 @@ require_ubuntu() {
   fi
 }
 
-# ── 0.5. jq (required by launch_project.sh and projects.sh) ─────────────────
-install_jq() {
-  if command -v jq &>/dev/null; then
-    info "jq already installed ($(jq --version | head -1)), skipping."
-    return
+# ── version helpers ────────────────────────────────────────────────────────────
+# Compare semantic versions: vercmp <actual> <required> → 0 if ok, 1 if upgrade needed
+vercmp() {
+  local actual="$1" required="$2"
+  local a_major a_minor a_patch r_major r_minor r_patch
+  IFS='.' read -r a_major a_minor a_patch <<< "${actual#v}"
+  IFS='.' read -r r_major r_minor r_patch <<< "${required#v}"
+  a_major="${a_major:-0}"; a_minor="${a_minor:-0}"; a_patch="${a_patch:-0}"
+  r_major="${r_major:-0}"; r_minor="${r_minor:-0}"; r_patch="${r_patch:-0}"
+  if   [ "$a_major" -lt "$r_major" ]; then return 1
+  elif [ "$a_major" -gt "$r_major" ]; then return 0
+  elif [ "$a_minor" -lt "$r_minor" ]; then return 1
+  elif [ "$a_minor" -gt "$r_minor" ]; then return 0
+  elif [ "$a_patch" -lt "$r_patch" ]; then return 1
   fi
-  info "Installing jq..."
-  sudo apt-get install -y jq
-  success "jq installed."
+  return 0
 }
 
-# ── 0.6. fnm — Fast Node Manager (used by .zshrc) ────────────────────────────
-install_fnm() {
+# ── PHASE 0: Bootstrap — absolute minimum tools needed on a bare Ubuntu ───────
+# These 4 tools must exist before ANY other installer can work.
+# No version checks here — just bare existence.
+
+bootstrap_base_tools() {
+  info "=== Phase 0: Bootstrap (base tools) ==="
+
+  local missing=()
+  for tool in git curl wget unzip; do
+    if ! command -v "$tool" &>/dev/null; then
+      missing+=("$tool")
+    fi
+  done
+
+  if [ ${#missing[@]} -eq 0 ]; then
+    info "All base tools present — skipping."
+  else
+    info "Installing: ${missing[*]}"
+    sudo apt-get update -qq
+    sudo apt-get install -y "${missing[@]}"
+  fi
+  success "Phase 0 complete."
+}
+
+# ── PHASE 1: System packages via apt ───────────────────────────────────────────
+install_apt_packages() {
+  info "=== Phase 1: System packages ==="
+
+  local to_install=()
+  declare -A pkg_tool_map=(
+    [git]="git"
+    [curl]="curl"
+    [wget]="wget"
+    [unzip]="unzip"
+    [zsh]="zsh"
+    [tmux]="tmux"
+    [alacritty]="alacritty"
+    [fontconfig]="fontconfig"
+    [fzf]="fzf"
+    [ripgrep]="rg"
+    [fd-find]="fd"
+    [python3]="python3"
+    [golang-go]="go"
+    [lua5.4]="lua"
+    [clangd]="clangd"
+    [cmake]="cmake"
+    [ninja-build]="ninja"
+    [xclip]="xclip"
+    [xdotool]="xdotool"
+  )
+
+  for pkg in "${!pkg_tool_map[@]}"; do
+    tool="${pkg_tool_map[$pkg]}"
+    if ! command -v "$tool" &>/dev/null && ! dpkg -s "$pkg" &>/dev/null 2>&1; then
+      to_install+=("$pkg")
+    fi
+  done
+
+  # zsh-syntax-highlighting (apt handles this separately as it has no binary)
+  if [ ! -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] \
+     && ! dpkg -s zsh-syntax-highlighting &>/dev/null 2>&1; then
+    to_install+=("zsh-syntax-highlighting")
+  fi
+
+  if [ ${#to_install[@]} -eq 0 ]; then
+    info "All apt packages present — skipping."
+  else
+    info "Installing: ${to_install[*]}"
+    sudo apt-get update -qq
+    sudo apt-get install -y "${to_install[@]}"
+  fi
+  success "Phase 1 complete."
+}
+
+# ── PHASE 2: Version-aware tool installations ──────────────────────────────────
+# Each function: checks tool + version. Installs only if missing or version too low.
+# All downloads use tools guaranteed by Phase 0 (git, curl, wget, unzip).
+
+# ── 2a. zsh ≥ 5.1 (Oh My Zsh and powerlevel10k instant prompt require 5.1+) ──────
+install_zsh() {
+  info "=== Phase 2a: zsh ==="
+  local REQUIRED="5.1"
+  if command -v zsh &>/dev/null; then
+    local version; version="$(zsh --version 2>&1 | grep -oP '\d+\.\d+' | head -1)"
+    if vercmp "$version" "$REQUIRED"; then
+      info "zsh $version (≥$REQUIRED) — skipping."
+      return
+    fi
+    info "zsh $version found, but ≥$REQUIRED required — upgrading..."
+  else
+    info "zsh not found — installing..."
+  fi
+  sudo apt-get install -y zsh
+  success "Phase 2a complete."
+}
+
+# ── 2b. tmux ≥ 2.1 (required for tmux-resurrect, tmux2k features) ──────────────
+install_tmux() {
+  info "=== Phase 2b: tmux ==="
+  local REQUIRED="2.1"
+  if command -v tmux &>/dev/null; then
+    local version; version="$(tmux -V 2>&1 | grep -oP '\d+\.\d+' | head -1)"
+    if vercmp "$version" "$REQUIRED"; then
+      info "tmux $version (≥$REQUIRED) — skipping."
+      return
+    fi
+    info "tmux $version found, but ≥$REQUIRED required — upgrading..."
+  else
+    info "tmux not found — installing..."
+  fi
+  sudo apt-get install -y tmux
+  success "Phase 2b complete."
+}
+
+# ── 2c. Neovim ≥ 0.10 (LazyVim and most plugins require 0.10+) ─────────────────
+install_neovim() {
+  info "=== Phase 2c: Neovim ==="
+  local REQUIRED="0.10"
+  if command -v nvim &>/dev/null; then
+    local version; version="$(nvim --version | head -1 | grep -oP '\d+\.\d+')"
+    if vercmp "$version" "$REQUIRED"; then
+      info "Neovim $version (≥$REQUIRED) — skipping."
+      return
+    fi
+    info "Neovim $version found, but ≥$REQUIRED required — upgrading..."
+  else
+    info "Neovim not found — installing..."
+  fi
+  local TMP; TMP="$(mktemp -d)"
+  wget -qO "$TMP/nvim.appimage" \
+    "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage"
+  chmod +x "$TMP/nvim.appimage"
+  (cd "$TMP" && ./nvim.appimage --appimage-extract &>/dev/null)
+  sudo mv "$TMP/squashfs-root" /opt/nvim
+  sudo ln -sf /opt/nvim/usr/bin/nvim /usr/local/bin/nvim
+  rm -rf "$TMP"
+  success "Phase 2c complete."
+}
+
+# ── 2d. Node.js ≥ 18 (fnm and many LSPs require 18+) ───────────────────────────
+install_nodejs() {
+  info "=== Phase 2d: Node.js ==="
+  local REQUIRED="18"
+  if command -v node &>/dev/null; then
+    local version; version="$(node --version | tr -d 'v')"
+    if vercmp "$version" "$REQUIRED"; then
+      info "Node.js $version (≥$REQUIRED) — skipping."
+      return
+    fi
+    info "Node.js $version found, but ≥$REQUIRED required — upgrading..."
+  else
+    info "Node.js not found — installing..."
+  fi
+  # Use fnm to install a specific Node version (fnm itself installed in Phase 2e)
   if command -v fnm &>/dev/null; then
-    info "fnm already installed ($(fnm --version 2>/dev/null | head -1 || echo "detected")), skipping."
+    fnm install 18
+    fnm default 18
+  else
+    # Fallback: install via apt
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash -
+    sudo apt-get install -y nodejs
+  fi
+  success "Phase 2d complete."
+}
+
+# ── 2e. fnm (Fast Node Manager — used in .zshrc) ───────────────────────────────
+install_fnm() {
+  info "=== Phase 2e: fnm ==="
+  if command -v fnm &>/dev/null; then
+    info "fnm already installed — skipping."
     return
   fi
   info "Installing fnm..."
   curl -fsSL https://fnm.vercel.app/install | bash
-  success "fnm installed."
+  success "Phase 2e complete."
 }
 
-# ── 0.7. opencode (AI coding tool, used in .zshrc alias) ────────────────────
-install_opencode() {
-  if command -v opencode &>/dev/null; then
-    info "opencode already installed ($(opencode --version 2>/dev/null | head -1 || echo "detected")), skipping."
+# ── 2f. Go ≥ 1.21 (gopls in nvim LSP config requires 1.21+) ──────────────────
+install_golang() {
+  info "=== Phase 2f: Go ==="
+  local REQUIRED="1.21"
+  if command -v go &>/dev/null; then
+    local version; version="$(go version 2>&1 | grep -oP '\d+\.\d+')"
+    if vercmp "$version" "$REQUIRED"; then
+      info "Go $version (≥$REQUIRED) — skipping."
+      return
+    fi
+    info "Go $version found, but ≥$REQUIRED required — upgrading..."
+  else
+    info "Go not found — installing..."
+  fi
+  local TMP; TMP="$(mktemp -d)"
+  local VERSION="1.23.0"
+  wget -qO "$TMP/go.tar.gz" \
+    "https://go.dev/dl/go${VERSION}.linux-amd64.tar.gz"
+  sudo rm -rf /usr/local/go
+  sudo tar -C /usr/local -xzf "$TMP/go.tar.gz"
+  rm -rf "$TMP"
+  export PATH="/usr/local/go/bin:$PATH"
+  success "Phase 2f complete."
+}
+
+# ── 2g. Rust / cargo (no strict version — just ensure present) ────────────────
+install_rust() {
+  info "=== Phase 2g: Rust ==="
+  if command -v cargo &>/dev/null; then
+    info "Rust/cargo already installed — skipping."
     return
   fi
-  info "Installing opencode..."
-  local TMP; TMP="$(mktemp -d)"
-  curl -fsSL https://opencode.ai/install.sh | sh -s -- -b "$HOME/.opencode/bin"
-  chmod +x "$HOME/.opencode/bin/opencode" 2>/dev/null || true
-  rm -rf "$TMP"
-  success "opencode installed to ~/.opencode/bin/opencode."
+  info "Installing Rust..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+  # shellcheck disable=SC1091
+  source "$HOME/.cargo/env"
+  success "Phase 2g complete."
 }
 
-# ── 1. apt packages ────────────────────────────────────────────────────────────
-install_apt_packages() {
-  info "Updating apt and installing base packages..."
-  sudo apt-get update -qq
-  sudo apt-get install -y \
-    git curl wget unzip build-essential \
-    zsh tmux alacritty \
-    zsh-syntax-highlighting \
-    fzf ripgrep fd-find \
-    fontconfig \
-    python3 python3-pip python3-venv \
-    golang-go \
-    lua5.4 luarocks \
-    nodejs npm \
-    clangd \
-    cmake ninja-build \
-    xclip xdotool
-  success "apt packages installed."
-}
-
-# ── 2. Nerd Fonts (JetBrainsMono — used by p10k nerdfont-v3 + alacritty) ──────
-install_nerd_fonts() {
-  local FONT_DIR="$HOME/.local/share/fonts"
-  if fc-list | grep -qi "JetBrainsMono"; then
-    info "JetBrainsMono Nerd Font already installed, skipping."
-    return
-  fi
-  info "Installing JetBrainsMono Nerd Font..."
-  local TMP; TMP="$(mktemp -d)"
-  wget -qO "$TMP/JetBrainsMono.zip" \
-    "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
-  mkdir -p "$FONT_DIR"
-  unzip -qo "$TMP/JetBrainsMono.zip" -d "$FONT_DIR/JetBrainsMono"
-  fc-cache -f
-  rm -rf "$TMP"
-  success "JetBrainsMono Nerd Font installed."
-}
-
-# ── 3. Homebrew (linuxbrew) ────────────────────────────────────────────────────
+# ── 2h. Homebrew ───────────────────────────────────────────────────────────────
 install_homebrew() {
+  info "=== Phase 2h: Homebrew ==="
   if command -v brew &>/dev/null; then
-    info "Homebrew already installed, skipping."
+    info "Homebrew already installed — skipping."
     return
   fi
   info "Installing Homebrew..."
@@ -111,129 +274,168 @@ install_homebrew() {
     "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   # shellcheck disable=SC1091
   eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-  success "Homebrew installed."
+  success "Phase 2h complete."
 }
 
-# ── 4. brew packages (eza, zoxide) ────────────────────────────────────────────
+# ── 2i. brew packages: eza, zoxide ────────────────────────────────────────────
 install_brew_packages() {
+  info "=== Phase 2i: brew packages (eza, zoxide) ==="
+  # shellcheck disable=SC1091
   eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" 2>/dev/null || true
-  info "Installing brew packages: eza, zoxide..."
-  brew install eza zoxide
-  success "brew packages installed."
-}
-
-# ── 5. Rust / cargo ───────────────────────────────────────────────────────────
-install_rust() {
-  if command -v cargo &>/dev/null; then
-    info "Rust/cargo already installed, skipping."
+  if command -v eza &>/dev/null && command -v zoxide &>/dev/null; then
+    info "eza and zoxide present — skipping."
     return
   fi
-  info "Installing Rust..."
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
-  # shellcheck disable=SC1091
-  source "$HOME/.cargo/env"
-  success "Rust installed."
+  info "Installing eza and zoxide..."
+  brew install eza zoxide
+  success "Phase 2i complete."
 }
 
-# ── 6. Oh My Zsh ──────────────────────────────────────────────────────────────
+# ── 2j. GitHub CLI gh (no strict version — just ensure present) ───────────────
+install_gh() {
+  info "=== Phase 2j: GitHub CLI ==="
+  if command -v gh &>/dev/null; then
+    info "gh already installed — skipping."
+    return
+  fi
+  info "Installing gh..."
+  local VERSION
+  VERSION="$(curl -fsSL https://github.com/cli/cli/releases/latest \
+    | grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' | head -1 | tr -d 'v')"
+  local TMP; TMP="$(mktemp -d)"
+  curl -fsSL "https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_amd64.tar.gz" \
+    -o "$TMP/gh.tar.gz"
+  tar -xzf "$TMP/gh.tar.gz" -C "$TMP/"
+  mkdir -p "$HOME/.local/bin"
+  cp "$TMP/gh_${VERSION}_linux_amd64/bin/gh" "$HOME/.local/bin/gh"
+  chmod +x "$HOME/.local/bin/gh"
+  rm -rf "$TMP"
+  success "Phase 2j complete."
+}
+
+# ── 2k. opencode (AI coding tool — just ensure present) ───────────────────────
+install_opencode() {
+  info "=== Phase 2k: opencode ==="
+  if command -v opencode &>/dev/null; then
+    info "opencode already installed — skipping."
+    return
+  fi
+  info "Installing opencode..."
+  mkdir -p "$HOME/.opencode/bin"
+  curl -fsSL https://opencode.ai/install.sh | sh -s -- -b "$HOME/.opencode/bin"
+  chmod +x "$HOME/.opencode/bin/opencode" 2>/dev/null || true
+  success "Phase 2k complete."
+}
+
+# ── 2l. jq (just ensure present — used by launch_project.sh) ─────────────────
+install_jq() {
+  info "=== Phase 2l: jq ==="
+  if command -v jq &>/dev/null; then
+    info "jq already installed — skipping."
+    return
+  fi
+  info "Installing jq..."
+  sudo apt-get install -y jq
+  success "Phase 2l complete."
+}
+
+# ── PHASE 3: Nerd Fonts (JetBrainsMono — used by p10k + alacritty) ─────────────
+install_nerd_fonts() {
+  info "=== Phase 3: JetBrainsMono Nerd Font ==="
+  if fc-list | grep -qi "JetBrainsMono"; then
+    info "JetBrainsMono Nerd Font already installed — skipping."
+    return
+  fi
+  info "Installing JetBrainsMono Nerd Font..."
+  local TMP; TMP="$(mktemp -d)"
+  wget -qO "$TMP/JetBrainsMono.zip" \
+    "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+  mkdir -p "$HOME/.local/share/fonts/JetBrainsMono"
+  unzip -qo "$TMP/JetBrainsMono.zip" -d "$HOME/.local/share/fonts/JetBrainsMono"
+  fc-cache -f
+  rm -rf "$TMP"
+  success "Phase 3 complete."
+}
+
+# ── PHASE 4: Oh My Zsh ────────────────────────────────────────────────────────
 install_ohmyzsh() {
+  info "=== Phase 4: Oh My Zsh ==="
   if [ -d "$HOME/.oh-my-zsh" ]; then
-    info "Oh My Zsh already installed, skipping."
+    info "Oh My Zsh already installed — skipping."
     return
   fi
   info "Installing Oh My Zsh..."
   RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-  success "Oh My Zsh installed."
+  success "Phase 4 complete."
 }
 
-# ── 7. Powerlevel10k theme ────────────────────────────────────────────────────
+# ── PHASE 5: Powerlevel10k ───────────────────────────────────────────────────
 install_p10k() {
+  info "=== Phase 5: Powerlevel10k ==="
   local P10K_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
   if [ -d "$P10K_DIR" ]; then
-    info "Powerlevel10k already installed, skipping."
+    info "Powerlevel10k already installed — skipping."
     return
   fi
   info "Installing Powerlevel10k..."
   git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$P10K_DIR"
-  success "Powerlevel10k installed."
+  success "Phase 5 complete."
 }
 
-# ── 8. zsh plugins ────────────────────────────────────────────────────────────
+# ── PHASE 6: zsh plugins ────────────────────────────────────────────────────────
 install_zsh_plugins() {
-  info "Installing zsh plugins..."
+  info "=== Phase 6: zsh plugins ==="
 
-  # zsh-autosuggestions (sourced from ~/.zsh/)
   local AUTO_DIR="$HOME/.zsh/zsh-autosuggestions"
   if [ ! -d "$AUTO_DIR" ]; then
+    info "Cloning zsh-autosuggestions..."
     git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git "$AUTO_DIR"
-    success "zsh-autosuggestions cloned."
   else
     info "zsh-autosuggestions already present."
   fi
 
-  # fzf-zsh-plugin
   local FZF_ZSH_DIR="$HOME/.zsh/fzf-zsh-plugin"
   if [ ! -d "$FZF_ZSH_DIR" ]; then
+    info "Cloning fzf-zsh-plugin..."
     git clone --depth=1 https://github.com/unixorn/fzf-zsh-plugin.git "$FZF_ZSH_DIR"
-    success "fzf-zsh-plugin cloned."
   else
     info "fzf-zsh-plugin already present."
   fi
 
-  # zsh-syntax-highlighting is installed via apt (see install_apt_packages)
-  # verify the expected path exists
-  if [ ! -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
-    warn "zsh-syntax-highlighting not found at expected path. May need: apt install zsh-syntax-highlighting"
+  if [ ! -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+    warn "zsh-syntax-highlighting not found — may need apt install zsh-syntax-highlighting"
   fi
 
-  success "zsh plugins ready."
+  success "Phase 6 complete."
 }
 
-# ── 9. Neovim (latest stable AppImage) ────────────────────────────────────────
-install_neovim() {
-  if command -v nvim &>/dev/null; then
-    info "Neovim already installed ($(nvim --version | head -1)), skipping."
-    return
-  fi
-  info "Installing Neovim (latest stable)..."
-  local TMP; TMP="$(mktemp -d)"
-  wget -qO "$TMP/nvim.appimage" \
-    "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage"
-  chmod +x "$TMP/nvim.appimage"
-  # Extract instead of running directly — works without FUSE (required in Docker/CI)
-  (cd "$TMP" && ./nvim.appimage --appimage-extract &>/dev/null)
-  sudo mv "$TMP/squashfs-root" /opt/nvim
-  sudo ln -sf /opt/nvim/usr/bin/nvim /usr/local/bin/nvim
-  rm -rf "$TMP"
-  success "Neovim installed (extracted to /opt/nvim)."
-}
-
-# ── 10. LazyVim bootstrap (lazy.nvim itself) ──────────────────────────────────
-# The full nvim config lives in the repo (.config/nvim/). lazy.nvim is
-# bootstrapped automatically on first `nvim` launch via lua/config/lazy.lua.
-# Nothing to do here — apply_dotfiles symlinks ~/.config/nvim to the repo.
+# ── PHASE 7: LazyVim bootstrap (lazy.nvim auto-bootstraps on first nvim launch) ─
 install_lazyvim() {
-  info "nvim config comes from the repo — no separate clone needed."
+  info "=== Phase 7: LazyVim ==="
+  info "lazy.nvim bootstraps on first nvim launch — no action needed."
+  success "Phase 7 complete."
 }
 
-# ── 11. TPM — tmux plugin manager ─────────────────────────────────────────────
+# ── PHASE 8: TPM — tmux plugin manager ─────────────────────────────────────────
 install_tpm() {
+  info "=== Phase 8: TPM ==="
   local TPM_DIR="$HOME/.tmux/plugins/tpm"
   if [ -d "$TPM_DIR" ]; then
-    info "TPM already installed, skipping."
+    info "TPM already installed — skipping."
     return
   fi
-  info "Installing TPM (tmux plugin manager)..."
+  info "Installing TPM..."
   git clone --depth=1 https://github.com/tmux-plugins/tpm "$TPM_DIR"
-  success "TPM installed."
+  success "Phase 8 complete."
 }
 
-# ── 12. tmux-start.sh helper (used by alacritty) ──────────────────────────────
+# ── PHASE 9: tmux-start.sh ─────────────────────────────────────────────────────
 install_tmux_start_script() {
+  info "=== Phase 9: tmux-start.sh ==="
   local SCRIPT="$HOME/.tmux/tmux-start.sh"
   if [ -f "$SCRIPT" ]; then
-    info "tmux-start.sh already exists, skipping."
+    info "tmux-start.sh already exists — skipping."
     return
   fi
   info "Creating ~/.tmux/tmux-start.sh..."
@@ -243,32 +445,65 @@ install_tmux_start_script() {
 tmux new-session \; source-file ~/.tmux.conf
 EOF
   chmod +x "$SCRIPT"
-  success "tmux-start.sh created."
+  success "Phase 9 complete."
 }
 
-# ── 13. Change default shell to zsh ───────────────────────────────────────────
+# ── PHASE 10: shell-color-scripts ─────────────────────────────────────────────
+install_shell_color_scripts() {
+  info "=== Phase 10: shell-color-scripts ==="
+  if command -v colorscript &>/dev/null; then
+    info "colorscript already installed — skipping."
+    return
+  fi
+  info "Installing shell-color-scripts..."
+  local TMP; TMP="$(mktemp -d)"
+  git clone --depth=1 https://gitlab.com/dwt1/shell-color-scripts.git "$TMP/shell-color-scripts"
+  mkdir -p "$HOME/.local/opt/shell-color-scripts" "$HOME/.local/bin"
+  cp -rf "$TMP/shell-color-scripts/colorscripts/." "$HOME/.local/opt/shell-color-scripts/"
+  cp "$TMP/shell-color-scripts/colorscript.sh" "$HOME/.local/bin/colorscript"
+  chmod +x "$HOME/.local/bin/colorscript"
+  sed -i 's|DIR_COLORSCRIPTS="/opt/shell-color-scripts/colorscripts"|DIR_COLORSCRIPTS="$HOME/.local/opt/shell-color-scripts"|' \
+    "$HOME/.local/bin/colorscript"
+  rm -rf "$TMP"
+  success "Phase 10 complete."
+}
+
+# ── PHASE 11: gh-notify (requires gh auth — skip if not authenticated) ─────────
+install_gh_notify() {
+  info "=== Phase 11: gh-notify ==="
+  if gh extension list 2>/dev/null | grep -q "gh-notify"; then
+    info "gh-notify already installed — skipping."
+    return
+  fi
+  if ! gh auth status &>/dev/null; then
+    warn "gh not authenticated — skipping gh-notify."
+    warn "Run 'gh auth login' then 'gh extension install meiji163/gh-notify' manually."
+    return
+  fi
+  info "Installing gh-notify..."
+  gh extension install meiji163/gh-notify
+  success "Phase 11 complete."
+}
+
+# ── PHASE 12: Set default shell to zsh ─────────────────────────────────────────
 set_default_shell() {
-  local ZSH_PATH
-  ZSH_PATH="$(command -v zsh)"
+  info "=== Phase 12: Default shell ==="
+  local ZSH_PATH; ZSH_PATH="$(command -v zsh)"
   if [ "$SHELL" = "$ZSH_PATH" ]; then
-    info "Default shell is already zsh, skipping."
+    info "Default shell already zsh — skipping."
     return
   fi
   info "Changing default shell to zsh..."
   sudo chsh -s "$ZSH_PATH" "$(whoami)"
-  success "Default shell changed to zsh (takes effect on next login)."
+  success "Phase 12 complete (takes effect on next login)."
 }
 
-# ── 14. Apply dotfiles (full symlink strategy) ────────────────────────────────
-# Every tracked path is symlinked from the repo. Editing the repo file IS editing
-# the live file — no manual copy needed. Dirs (nvim, opencode, alacritty, scripts)
-# are linked as whole directories so new files inside auto-propagate.
+# ── PHASE 13: Apply dotfiles (LAST — after all tools verified) ─────────────────
 apply_dotfiles() {
-  info "Applying dotfiles from $REPO_DIR..."
+  info "=== Phase 13: Applying dotfiles ==="
 
   mkdir -p "$HOME/.config"
 
-  # Helper: backup existing target then create symlink
   link() {
     local src="$1" dst="$2"
     if [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ]; then
@@ -283,34 +518,38 @@ apply_dotfiles() {
     success "Linked $dst → $src"
   }
 
-  # Standalone dotfiles
-  link "$REPO_DIR/.zshrc"    "$HOME/.zshrc"
-  link "$REPO_DIR/.p10k.zsh" "$HOME/.p10k.zsh"
-  link "$REPO_DIR/.fzf.zsh"  "$HOME/.fzf.zsh"
+  link "$REPO_DIR/.zshrc"     "$HOME/.zshrc"
+  link "$REPO_DIR/.p10k.zsh"  "$HOME/.p10k.zsh"
+  link "$REPO_DIR/.fzf.zsh"   "$HOME/.fzf.zsh"
   link "$REPO_DIR/.tmux.conf" "$HOME/.tmux.conf"
-
-  # Whole-directory symlinks — new files inside auto-propagate
   link "$REPO_DIR/.scripts"          "$HOME/.scripts"
   link "$REPO_DIR/.config/nvim"      "$HOME/.config/nvim"
   link "$REPO_DIR/.config/alacritty" "$HOME/.config/alacritty"
   link "$REPO_DIR/.config/opencode"  "$HOME/.config/opencode"
 
-  success "Dotfiles applied."
+  success "Phase 13 complete."
 }
 
-# ── 14b. tmux2k custom plugins ────────────────────────────────────────────────
-# calc and copilot are custom tmux2k plugins that live in the repo under
-# .scripts/. After TPM installs tmux2k, we symlink them into the tmux2k plugins
-# directory. TPM manages that dir as a git repo — any file added directly would
-# be lost on `tpm update`. Symlinks survive because git ignores unknown files.
+# ── PHASE 14: Install tmux plugins via TPM ─────────────────────────────────────
+install_tmux_plugins() {
+  info "=== Phase 14: tmux plugins (TPM) ==="
+  if [ -f "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]; then
+    TMUX='' "$HOME/.tmux/plugins/tpm/bin/install_plugins" || true
+    success "tmux plugins installed."
+  else
+    warn "TPM not ready yet — skipping. Run prefix+I inside tmux after first boot."
+  fi
+  success "Phase 14 complete."
+}
+
+# ── PHASE 15: tmux2k custom plugins ────────────────────────────────────────────
 link_tmux2k_plugins() {
+  info "=== Phase 15: tmux2k custom plugins ==="
   local TMUX2K_PLUGINS_DIR="$HOME/.tmux/plugins/tmux2k/plugins"
   if [ ! -d "$TMUX2K_PLUGINS_DIR" ]; then
-    warn "tmux2k plugins dir not found ($TMUX2K_PLUGINS_DIR) — skipping custom plugin links."
-    warn "Run prefix+I in tmux first, then re-run: bash .scripts/setup.sh"
+    warn "tmux2k plugins dir not found — skipping (run prefix+I in tmux first)."
     return
   fi
-  info "Linking custom tmux2k plugins..."
   for plugin in calc copilot; do
     local src="$REPO_DIR/.scripts/${plugin}.sh"
     local dst="$TMUX2K_PLUGINS_DIR/${plugin}.sh"
@@ -323,122 +562,109 @@ link_tmux2k_plugins() {
     else
       [ -e "$dst" ] && mv "$dst" "${dst}.bak"
       ln -sf "$src" "$dst"
-      success "Linked tmux2k plugin: $dst → $src"
+      success "Linked: $dst → $src"
     fi
   done
-  success "tmux2k custom plugins linked."
+  success "Phase 15 complete."
 }
 
-# ── 15. shell-color-scripts (used by snacks dashboard) ───────────────────────
-install_shell_color_scripts() {
-  if command -v colorscript &>/dev/null; then
-    info "colorscript already installed, skipping."
-    return
-  fi
-  info "Installing shell-color-scripts (local, no sudo)..."
-  local TMP; TMP="$(mktemp -d)"
-  git clone --depth=1 https://gitlab.com/dwt1/shell-color-scripts.git "$TMP/shell-color-scripts"
-  mkdir -p "$HOME/.local/opt/shell-color-scripts" "$HOME/.local/bin"
-  cp -rf "$TMP/shell-color-scripts/colorscripts/." "$HOME/.local/opt/shell-color-scripts/"
-  cp "$TMP/shell-color-scripts/colorscript.sh" "$HOME/.local/bin/colorscript"
-  chmod +x "$HOME/.local/bin/colorscript"
-  # Patch the hardcoded /opt path to use ~/.local/opt
-  sed -i 's|DIR_COLORSCRIPTS="/opt/shell-color-scripts/colorscripts"|DIR_COLORSCRIPTS="$HOME/.local/opt/shell-color-scripts"|' \
-    "$HOME/.local/bin/colorscript"
-  rm -rf "$TMP"
-  success "colorscript installed to ~/.local/bin/colorscript."
-}
-
-# ── 16. GitHub CLI (gh) ───────────────────────────────────────────────────────
-install_gh() {
-  if command -v gh &>/dev/null; then
-    info "gh already installed ($(gh --version | head -1)), skipping."
-    return
-  fi
-  info "Installing GitHub CLI (gh) locally..."
-  local VERSION
-  VERSION="$(curl -fsSL https://github.com/cli/cli/releases/latest \
-    | grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' | head -1 | tr -d 'v')"
-  local TMP; TMP="$(mktemp -d)"
-  curl -fsSL "https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_amd64.tar.gz" \
-    -o "$TMP/gh.tar.gz"
-  tar -xzf "$TMP/gh.tar.gz" -C "$TMP/"
-  mkdir -p "$HOME/.local/bin"
-  cp "$TMP/gh_${VERSION}_linux_amd64/bin/gh" "$HOME/.local/bin/gh"
-  chmod +x "$HOME/.local/bin/gh"
-  rm -rf "$TMP"
-  success "gh v${VERSION} installed to ~/.local/bin/gh."
-}
-
-# ── 17. gh-notify extension ───────────────────────────────────────────────────
-install_gh_notify() {
-  if gh extension list 2>/dev/null | grep -q "gh-notify"; then
-    info "gh-notify extension already installed, skipping."
-    return
-  fi
-  # gh must be authenticated to install extensions
-  if ! gh auth status &>/dev/null; then
-    warn "gh is not authenticated — skipping gh-notify install."
-    warn "Run 'gh auth login' then 'gh extension install meiji163/gh-notify' manually."
-    return
-  fi
-  info "Installing gh-notify extension..."
-  gh extension install meiji163/gh-notify
-  success "gh-notify extension installed."
-}
-
-# ── 18. Install tmux plugins via TPM ──────────────────────────────────────────
-install_tmux_plugins() {
-  info "Installing tmux plugins via TPM..."
-  if [ -f "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]; then
-    # TPM needs TMUX env to be set; run headlessly
-    TMUX='' "$HOME/.tmux/plugins/tpm/bin/install_plugins" || true
-    success "tmux plugins installed."
-  else
-    warn "TPM not found — skipping plugin install. Run prefix+I inside tmux."
-  fi
-}
-
-# ── main ──────────────────────────────────────────────────────────────────────
+# ── main ───────────────────────────────────────────────────────────────────────────
 main() {
   require_ubuntu
 
-  info "=== Starting device bootstrap from $REPO_DIR ==="
+  info "=== Starting bootstrap from $REPO_DIR ==="
+  echo ""
+
+  bootstrap_base_tools
+  echo ""
+
+  install_apt_packages
+  echo ""
+
+  install_zsh
+  echo ""
+
+  install_tmux
+  echo ""
+
+  install_neovim
+  echo ""
+
+  install_nodejs
+  echo ""
+
+  install_fnm
+  echo ""
+
+  install_golang
+  echo ""
+
+  install_rust
+  echo ""
+
+  install_homebrew
+  echo ""
+
+  install_brew_packages
+  echo ""
+
+  install_gh
+  echo ""
+
+  install_opencode
+  echo ""
 
   install_jq
-  install_fnm
-  install_opencode
-  install_apt_packages
-  install_nerd_fonts
-  install_homebrew
-  install_brew_packages
-  install_rust
-  install_ohmyzsh
-  install_p10k
-  install_zsh_plugins
-  install_neovim
-  install_lazyvim
-  install_tpm
-  install_tmux_start_script
-  install_shell_color_scripts
-  install_gh
-  install_gh_notify
-  set_default_shell
-  apply_dotfiles
-  install_tmux_plugins
-  link_tmux2k_plugins
-
   echo ""
+
+  install_nerd_fonts
+  echo ""
+
+  install_ohmyzsh
+  echo ""
+
+  install_p10k
+  echo ""
+
+  install_zsh_plugins
+  echo ""
+
+  install_lazyvim
+  echo ""
+
+  install_tpm
+  echo ""
+
+  install_tmux_start_script
+  echo ""
+
+  install_shell_color_scripts
+  echo ""
+
+  install_gh_notify
+  echo ""
+
+  set_default_shell
+  echo ""
+
+  apply_dotfiles
+  echo ""
+
+  install_tmux_plugins
+  echo ""
+
+  link_tmux2k_plugins
+  echo ""
+
   success "=== Bootstrap complete! ==="
   echo ""
   echo "  Next steps:"
   echo "  1. Log out and back in (or run: exec zsh) for shell changes."
-  echo "  2. Open Neovim: nvim   — plugins will auto-install on first launch."
-  echo "  3. Open tmux and press <prefix>+I to confirm tmux plugins are installed."
-  echo "  4. Alacritty is configured to start tmux automatically."
-  echo "  5. Run 'p10k configure' if you want to reconfigure the prompt."
-  echo "  6. Authenticate GitHub CLI: gh auth login"
-  echo "     Then the snacks dashboard will show notifications, issues and PRs."
+  echo "  2. Open Neovim: nvim   — plugins auto-install on first launch."
+  echo "  3. Open tmux and press <prefix>+I to install tmux plugins."
+  echo "  4. Run 'p10k configure' to reconfigure the prompt if needed."
+  echo "  5. Authenticate: gh auth login"
+  echo "  6. Re-run setup after gh auth: bash .scripts/setup.sh"
 }
 
 main "$@"
