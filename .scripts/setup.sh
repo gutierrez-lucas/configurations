@@ -26,6 +26,42 @@ require_ubuntu() {
   fi
 }
 
+# ── 0.5. jq (required by launch_project.sh and projects.sh) ─────────────────
+install_jq() {
+  if command -v jq &>/dev/null; then
+    info "jq already installed ($(jq --version | head -1)), skipping."
+    return
+  fi
+  info "Installing jq..."
+  sudo apt-get install -y jq
+  success "jq installed."
+}
+
+# ── 0.6. fnm — Fast Node Manager (used by .zshrc) ────────────────────────────
+install_fnm() {
+  if command -v fnm &>/dev/null; then
+    info "fnm already installed ($(fnm --version 2>/dev/null | head -1 || echo "detected")), skipping."
+    return
+  fi
+  info "Installing fnm..."
+  curl -fsSL https://fnm.vercel.app/install | bash
+  success "fnm installed."
+}
+
+# ── 0.7. opencode (AI coding tool, used in .zshrc alias) ────────────────────
+install_opencode() {
+  if command -v opencode &>/dev/null; then
+    info "opencode already installed ($(opencode --version 2>/dev/null | head -1 || echo "detected")), skipping."
+    return
+  fi
+  info "Installing opencode..."
+  local TMP; TMP="$(mktemp -d)"
+  curl -fsSL https://opencode.ai/install.sh | sh -s -- -b "$HOME/.opencode/bin"
+  chmod +x "$HOME/.opencode/bin/opencode" 2>/dev/null || true
+  rm -rf "$TMP"
+  success "opencode installed to ~/.opencode/bin/opencode."
+}
+
 # ── 1. apt packages ────────────────────────────────────────────────────────────
 install_apt_packages() {
   info "Updating apt and installing base packages..."
@@ -369,6 +405,9 @@ main() {
 
   info "=== Starting device bootstrap from $REPO_DIR ==="
 
+  install_jq
+  install_fnm
+  install_opencode
   install_apt_packages
   install_nerd_fonts
   install_homebrew
