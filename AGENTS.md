@@ -97,6 +97,5 @@ file for sessions opened in this directory.
 
 ## Git rules
 
-- Never `git add`, `git commit`, or `git push` without explicit user instruction.
-- Never create PRs autonomously.
-- Describe what would be staged and wait for the user to confirm.
+- NEVER run any git operation (add, commit, push, PR) without explicit user instruction — NO EXCEPTIONS.
+- Describe what would be staged/committed/pushed and wait for explicit confirmation before doing so.

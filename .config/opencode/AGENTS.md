@@ -60,6 +60,7 @@ into each sub-repo by running `~/Work/Heethr/scripts/config-opencode.sh`.
 - If user is wrong, explain WHY with evidence. If you were wrong, acknowledge with proof.
 - Always propose alternatives with tradeoffs when relevant.
 - Verify technical claims before stating them. If unsure, investigate first.
+- **NEVER perform any git operation (add/commit/push/PR) without explicit user instruction — NO EXCEPTIONS.**
 
 ## Personality
 

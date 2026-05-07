@@ -114,3 +114,10 @@ precmd() {
     printf '\a'  # ASCII bell
   fi
 }
+
+# >>> Heethr mobile setup >>>
+export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
+export ANDROID_HOME="$HOME/Android/Sdk"
+export FLUTTER_HOME="$HOME/.local/share/flutter"
+export PATH="$PATH:$HOME/.local/share/flutter/bin:$HOME/Android/Sdk/cmdline-tools/latest/bin:$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator"
+# <<< Heethr mobile setup <<<

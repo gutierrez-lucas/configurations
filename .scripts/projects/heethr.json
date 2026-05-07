@@ -8,7 +8,8 @@
   "lifecycle": {
     "start": "zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json",
     "restart": "zsh ~/.scripts/close_heethr.sh && sleep 1 && zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json",
-    "stop": "zsh ~/.scripts/close_heethr.sh"
+    "stop": "zsh ~/.scripts/close_heethr.sh",
+    "mobile": "zsh ~/.scripts/launch_mobile.sh"
   },
   "tmux": {
     "windows": [

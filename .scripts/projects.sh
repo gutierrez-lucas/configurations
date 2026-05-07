@@ -129,8 +129,6 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
   --no-info \
   --no-mouse \
   --bind="$VIM_BINDS" \
-  --bind='start:unbind(enter)' \
-  --bind='load:rebind(enter)' \
 )
 
 [[ -z "$selected" ]] && exit 0
@@ -180,6 +178,12 @@ done
 
 [[ ${#actions[@]} -eq 0 ]] && exit 0
 
+# DEBUG
+{
+  echo "DEBUG: actions count=${#actions[@]}"
+  printf "DEBUG: action line: %s\n" "${actions[@]}"
+} >> /tmp/projects_debug.txt
+
 selected_action=$(printf '%s\n' "${actions[@]}" | fzf \
   --ansi \
   --no-sort \
@@ -197,9 +201,14 @@ selected_action=$(printf '%s\n' "${actions[@]}" | fzf \
   --no-info \
   --no-mouse \
   --bind="$VIM_BINDS" \
-  --bind='start:unbind(enter)' \
-  --bind='load:rebind(enter)' \
+  --bind='enter:accept' \
 )
+
+# DEBUG
+{
+  echo "DEBUG: fzf returned: [[$selected_action]]"
+  echo "DEBUG: length: ${#selected_action}"
+} >> /tmp/projects_debug.txt
 
 [[ -z "$selected_action" ]] && exit 0
 
@@ -242,7 +251,9 @@ if [[ "$lc_key" == "start" || "$lc_key" == "stop" || "$lc_key" == "restart" ]] \
 fi
 
 # Expand ~ and run the command with zsh to preserve all syntax
-LAUNCHED_FROM_PROJECTS=1 zsh -c "$(echo "$action_script" | sed "s|~|$HOME|g")"
+_expanded_cmd="$(echo "$action_script" | sed "s|~|$HOME|g")"
+echo "DEBUG: Expanded: $_expanded_cmd" >> /tmp/projects_debug.txt
+LAUNCHED_FROM_PROJECTS=1 zsh -c "$_expanded_cmd"
 
 # After a start action, switch focus to the new session.
 # If a tmux client exists, switch it there.

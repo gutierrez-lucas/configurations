@@ -63,3 +63,8 @@ to `.gitignore`.**
 
 Adding a project: create `.scripts/projects/<name>.json`. Because `.scripts/` is
 a symlinked directory, it appears at `~/.scripts/projects/<name>.json` automatically.
+
+## Git rules (ABSOLUTE)
+
+- **NEVER perform any git operation (add/commit/push/PR) without explicit user instruction — NO EXCEPTIONS.**
+- Describe what would be staged/committed/pushed and wait for explicit confirmation.
