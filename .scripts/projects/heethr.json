@@ -6,9 +6,9 @@
   "dir": "/home/lucas/Work/Heethr",
   "session": "Heethr",
   "lifecycle": {
-    "start": "zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json",
-    "restart": "zsh ~/.scripts/close_heethr.sh && sleep 1 && zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json",
-    "stop": "zsh ~/.scripts/close_heethr.sh",
+    "start": "zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json && zsh ~/.scripts/launch_heethr_browser.sh",
+    "restart": "zsh ~/.scripts/close_heethr.sh && zsh ~/.scripts/close_heethr_browser.sh && sleep 1 && zsh ~/.scripts/launch_project.sh ~/.scripts/projects/heethr.json && zsh ~/.scripts/launch_heethr_browser.sh",
+    "stop": "zsh ~/.scripts/close_heethr_browser.sh && zsh ~/.scripts/close_heethr.sh",
     "mobile": "zsh ~/.scripts/launch_mobile.sh"
   },
   "tmux": {

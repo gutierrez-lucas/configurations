@@ -103,8 +103,15 @@ if $HERE; then
   log "Session '$SESSION' created — attaching here."
   tmux switch-client -t "$SESSION"
 else
-  alacritty -e tmux attach-session -t "$SESSION" &
-  log "Session '$SESSION' created — opening Alacritty."
+  # If already in tmux, switch the current client directly to the session.
+  # Otherwise open Alacritty.
+  if tmux display-message -p '#{client_session}' &>/dev/null; then
+    tmux switch-client -t "$SESSION"
+    log "Session '$SESSION' created — switched to it."
+  else
+    alacritty -e tmux attach-session -t "$SESSION" &
+    log "Session '$SESSION' created — opening Alacritty."
+  fi
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
