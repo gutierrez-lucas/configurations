@@ -121,3 +121,5 @@ export ANDROID_HOME="$HOME/Android/Sdk"
 export FLUTTER_HOME="$HOME/.local/share/flutter"
 export PATH="$PATH:$HOME/.local/share/flutter/bin:$HOME/Android/Sdk/cmdline-tools/latest/bin:$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator"
 # <<< Heethr mobile setup <<<
+
+. "$HOME/.local/share/../bin/env"
