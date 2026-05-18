@@ -34,16 +34,18 @@ because TPM manages that dir as a git repo — `tpm update` would delete them.
 ~/.tmux/plugins/tmux2k/plugins/copilot.sh → ~/.scripts/copilot.sh
 ```
 
-## .gitignore gotcha
+## .gitignore
 
-Root `.gitignore` starts with `*` (ignore everything) and whitelists tracked paths
-explicitly. **Any new file will be silently untracked unless you add `!/<path>`
-to `.gitignore`.**
+The root `.gitignore` explicitly lists files and patterns to exclude. It does NOT
+use a `*` + whitelist pattern — all files are tracked by default unless excluded.
+
+Currently excluded: `.engram/*.db`, `.engram/*.db-shm`, `.engram/*.db-wal`
+(Engram persistent memory DB — synced via Syncthing, not git).
 
 ## Adding new files
 
 1. Create the file inside the repo.
-2. Add `!/<path>` to `.gitignore`.
+2. If the file should NOT be tracked (e.g. binary state, secrets), add it to `.gitignore`.
 3. Re-run `bash .scripts/setup.sh` to create the symlink (for new standalone files
    or new top-level dirs). Files inside already-symlinked directories (e.g.
    `.config/nvim/`, `.scripts/`) propagate automatically — no setup re-run needed.
@@ -52,8 +54,8 @@ to `.gitignore`.**
 
 1. Edit on machine A → commit → push.
 2. On machine B: `git pull` — live files update instantly via symlinks.
-3. Adding a new file: also add `!/<path>` to `.gitignore` and re-run `setup.sh`
-   on each machine to create the new symlink.
+3. Adding a new file: re-run `setup.sh` on each machine to create the new symlink.
+4. Engram memory DB is synced separately via Syncthing — not via git.
 
 ## Project launcher system
 

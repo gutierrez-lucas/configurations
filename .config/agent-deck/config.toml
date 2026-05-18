@@ -1,0 +1,17 @@
+default_tool = "opencode"
+
+[logs]
+max_size_mb = 10
+max_lines = 10000
+remove_orphans = true
+
+[display]
+default_filter = "active"
+
+[tools.opencode]
+command = "opencode"
+icon = "🌐"
+busy_patterns = ["tool call", "Running", "executing", "streaming", "commentary"]
+
+[tmux]
+socket_name = "agent-deck"

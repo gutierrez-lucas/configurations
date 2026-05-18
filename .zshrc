@@ -77,6 +77,9 @@ alias close_heethr='/home/lucas/.scripts/close_heethr.sh'
 alias projects='/home/lucas/.scripts/projects.sh'
 
 alias o='opencode'
+alias ad='AGENT_DECK_ALLOW_OUTER_TMUX=1 agent-deck'
+alias adoc='/home/lucas/.scripts/agentdeck-opencode.sh'
+alias adh='/home/lucas/.scripts/heethr-agentdeck.sh attach'
 
 # TODO
 alias todo='/home/lucas/.scripts/todo.sh'

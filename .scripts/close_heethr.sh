@@ -37,3 +37,8 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
 else
   warn "No '$SESSION' session found — nothing to close."
 fi
+
+# ── 3. Remove the Heethr agent-deck root session ─────────────────────────────
+if [[ -x "$HOME/.scripts/heethr-agentdeck.sh" ]]; then
+  zsh "$HOME/.scripts/heethr-agentdeck.sh" remove
+fi

@@ -1,0 +1,4 @@
+# Engram persistent memory — binary SQLite files, synced via Syncthing instead of git
+.engram/*.db
+.engram/*.db-shm
+.engram/*.db-wal
