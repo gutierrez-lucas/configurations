@@ -99,19 +99,19 @@ if [[ -n "$focus" ]]; then
 fi
 
 # ── Open terminal or attach in place ─────────────────────────────────────────
-if $HERE; then
+# The popup launcher already switches the outer client after this script
+# returns. Avoid competing switch-client calls from inside the popup flow.
+if [[ "${LAUNCHED_FROM_PROJECTS:-0}" == "1" ]]; then
+  log "Session '$SESSION' created — launcher will focus it."
+elif $HERE; then
   log "Session '$SESSION' created — attaching here."
   tmux switch-client -t "$SESSION"
+elif [[ -n "${TMUX:-}" ]]; then
+  tmux switch-client -t "$SESSION"
+  log "Session '$SESSION' created — switched to it."
 else
-  # If already in tmux, switch the current client directly to the session.
-  # Otherwise open Alacritty.
-  if tmux display-message -p '#{client_session}' &>/dev/null; then
-    tmux switch-client -t "$SESSION"
-    log "Session '$SESSION' created — switched to it."
-  else
-    alacritty -e tmux attach-session -t "$SESSION" &
-    log "Session '$SESSION' created — opening Alacritty."
-  fi
+  alacritty -e tmux attach-session -t "$SESSION" &
+  log "Session '$SESSION' created — opening Alacritty."
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
